@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { WatchTier } from "@/lib/types";
 
 export function ScoreGauge({
@@ -9,7 +10,8 @@ export function ScoreGauge({
   tier: WatchTier;
   size?: number;
 }) {
-  const stroke = size * 0.085;
+  const gid = useId().replace(/:/g, "");
+  const stroke = size * 0.09;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(100, score)) / 100;
@@ -22,13 +24,26 @@ export function ScoreGauge({
       role="img"
       aria-label={`Wskaźnik oglądalności ${score} na 100 — ${tier.label}`}
     >
-      <svg width={size} height={size} className="-rotate-90">
+      {/* poświata pod pierścieniem */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: `radial-gradient(circle, ${tier.color}33, transparent 68%)`,
+        }}
+      />
+      <svg width={size} height={size} className="-rotate-90 relative">
+        <defs>
+          <linearGradient id={`grad-${gid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={tier.color} />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.85" />
+          </linearGradient>
+        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="var(--color-border)"
+          stroke="rgba(255,255,255,0.08)"
           strokeWidth={stroke}
         />
         <circle
@@ -36,27 +51,27 @@ export function ScoreGauge({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={tier.color}
+          stroke={`url(#grad-${gid})`}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={offset}
           style={{
-            transition: "stroke-dashoffset 0.9s cubic-bezier(0.22,1,0.36,1)",
-            filter: `drop-shadow(0 0 6px ${tier.color}55)`,
+            transition: "stroke-dashoffset 1s cubic-bezier(0.22,1,0.36,1)",
+            filter: `drop-shadow(0 0 7px ${tier.color}77)`,
           }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className="font-mono font-bold leading-none"
-          style={{ fontSize: size * 0.3, color: tier.color }}
+          className="font-display font-extrabold leading-none tabular-nums"
+          style={{ fontSize: size * 0.32, color: tier.color }}
         >
           {score}
         </span>
         <span
-          className="font-mono text-faint leading-none mt-0.5"
-          style={{ fontSize: size * 0.1 }}
+          className="font-mono text-faint leading-none mt-1 tracking-wider"
+          style={{ fontSize: size * 0.095 }}
         >
           / 100
         </span>
