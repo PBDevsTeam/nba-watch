@@ -136,7 +136,22 @@ export async function getGameSummary(gameId: string): Promise<GameSummary> {
 
   const comp = data?.header?.competitions?.[0] ?? {};
   const competitors: any[] = comp?.competitors ?? [];
-  const periods = Number(comp?.status?.period ?? 4);
+
+  // Liczba kwart — w endpoincie summary status.period bywa undefined,
+  // więc wnioskujemy w kolejności: 1) z linescores (po jednej na kwartę),
+  // 2) z detalu statusu ("Final/OT", "Final/2OT"), 3) z period jeśli jest.
+  const linescores: any[] = comp?.competitors?.[0]?.linescores ?? [];
+  const detail: string =
+    comp?.status?.type?.detail ?? comp?.status?.type?.shortDetail ?? "";
+  const otMatch = detail.match(/(\d*)\s*OT/i);
+  let periods = 4;
+  if (Array.isArray(linescores) && linescores.length >= 4) {
+    periods = linescores.length;
+  } else if (otMatch) {
+    periods = 4 + (otMatch[1] ? parseInt(otMatch[1], 10) : 1);
+  } else if (Number(comp?.status?.period) >= 4) {
+    periods = Number(comp?.status?.period);
+  }
 
   const boxTeams: any[] = data?.boxscore?.players ?? [];
 
