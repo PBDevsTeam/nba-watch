@@ -33,6 +33,13 @@ export type TeamBox = {
   players: PlayerLine[];
 };
 
+/** Kontekst rozgrywek — mnożnik ważności meczu (playoff > sezon zasadniczy). */
+export type WatchContext = {
+  kind: "regular" | "playin" | "playoffs" | "finals";
+  label: string; // "Sezon zasadniczy" | "Play-In" | "Playoff" | "Finały"
+  multiplier: number; // 1.0 ... 1.25
+};
+
 /** Lekki obiekt wysyłany PRZED revealem — nie zdradza wyniku. */
 export type GamePreview = {
   id: string;
@@ -41,6 +48,7 @@ export type GamePreview = {
   home: TeamInfo;
   watchScore: number; // 0-100
   tier: WatchTier;
+  context: WatchContext;
 };
 
 /** Pełny obiekt po revealu — zawiera wynik i box score (spoilery). */
@@ -51,7 +59,9 @@ export type GameReveal = {
   periods: number; // 4 = bez dogrywki, >4 = dogrywka(i)
   watchScore: number;
   tier: WatchTier;
-  breakdown: WatchFactor[];
+  context: WatchContext;
+  base: number; // wynik przed mnożnikiem kontekstu
+  breakdown: WatchFactor[]; // posortowane malejąco wg standalone
 };
 
 export type WatchTier = {
@@ -61,10 +71,15 @@ export type WatchTier = {
   color: string; // hex
 };
 
+/**
+ * Pojedynczy "powód, aby obejrzeć". `standalone` (0-100) = ile ten powód byłby
+ * wart, gdyby był JEDYNĄ rzeczą w meczu. Model bierze najsilniejszy jako bazę,
+ * reszta dopełnia — dlatego pojedynczy wybitny wyczyn czyni mecz must-watch.
+ */
 export type WatchFactor = {
   key: string;
-  label: string; // np. "Końcówka na styku"
-  detail: string; // np. "Różnica 2 pkt"
-  points: number; // wkład w wynik
-  max: number;
+  label: string; // np. "Eksplozja punktowa"
+  detail: string; // np. "Bam Adebayo — 83 pkt"
+  standalone: number; // 0-100
+  primary?: boolean; // czy to główny powód (najwyższy standalone)
 };

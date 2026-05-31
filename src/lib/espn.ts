@@ -79,6 +79,21 @@ function toInt(v: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** "9:51" -> 591 (sekundy pozostałe w danej kwarcie). */
+function clockToSeconds(disp: string | undefined): number | null {
+  const m = /(\d+):(\d+)(?:\.\d+)?/.exec(disp ?? "");
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** Lekki punkt z play-by-play — tylko to, co potrzebne do scoringu. */
+export type PbpPoint = {
+  home: number;
+  away: number;
+  period: number; // 1-4 = kwarty, 5+ = dogrywki
+  sec: number | null; // sekundy do końca kwarty
+};
+
 function parsePlayers(teamPlayers: any): PlayerLine[] {
   const stat = teamPlayers?.statistics?.[0] ?? {};
   const labels: string[] = stat?.labels ?? [];
@@ -126,16 +141,36 @@ function parsePlayers(teamPlayers: any): PlayerLine[] {
 export type GameSummary = {
   id: string;
   periods: number;
+  seasonTypeName: string; // "Regular Season" | "Playoffs" | "Play-In" ...
+  pbp: PbpPoint[];
   home: TeamBox;
   away: TeamBox;
 };
 
-/** Pełne dane meczu: box score + wynik + liczba kwart. */
+/** Pełne dane meczu: box score + wynik + liczba kwart + play-by-play. */
 export async function getGameSummary(gameId: string): Promise<GameSummary> {
   const data = await fetchJson(`${SUMMARY}?event=${gameId}`);
 
   const comp = data?.header?.competitions?.[0] ?? {};
   const competitors: any[] = comp?.competitors ?? [];
+
+  // typ rozgrywek — kontekst (playoff > sezon zasadniczy). Bywa w kilku miejscach.
+  const seasonTypeName: string =
+    data?.header?.season?.type?.name ??
+    data?.header?.competitions?.[0]?.type?.text ??
+    data?.season?.type?.name ??
+    "Regular Season";
+
+  // play-by-play -> lekkie punkty {home, away, period, sec}
+  const rawPlays: any[] = Array.isArray(data?.plays) ? data.plays : [];
+  const pbp: PbpPoint[] = rawPlays
+    .map((p) => ({
+      home: toInt(p?.homeScore),
+      away: toInt(p?.awayScore),
+      period: Number(p?.period?.number ?? 0),
+      sec: clockToSeconds(p?.clock?.displayValue),
+    }))
+    .filter((p) => p.period > 0);
 
   // Liczba kwart — w endpoincie summary status.period bywa undefined,
   // więc wnioskujemy w kolejności: 1) z linescores (po jednej na kwartę),
@@ -175,6 +210,8 @@ export async function getGameSummary(gameId: string): Promise<GameSummary> {
   return {
     id: gameId,
     periods,
+    seasonTypeName,
+    pbp,
     home: build("home"),
     away: build("away"),
   };

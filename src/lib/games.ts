@@ -17,7 +17,7 @@ export async function getPreviewsForDate(iso: string): Promise<GamePreview[]> {
     completed.map(async (g): Promise<GamePreview | null> => {
       try {
         const summary = await getGameSummary(g.id);
-        const { score, tier } = computeWatchability(summary);
+        const { score, tier, context } = computeWatchability(summary);
         return {
           id: g.id,
           dateISO: iso,
@@ -25,6 +25,7 @@ export async function getPreviewsForDate(iso: string): Promise<GamePreview[]> {
           home: g.home,
           watchScore: score,
           tier,
+          context,
         };
       } catch {
         return null;
@@ -40,7 +41,7 @@ export async function getPreviewsForDate(iso: string): Promise<GamePreview[]> {
 /** Pełne dane meczu (spoilery) — używane przez /api/game/[id] po revealu. */
 export async function getReveal(gameId: string): Promise<GameReveal> {
   const summary = await getGameSummary(gameId);
-  const { score, tier, breakdown } = computeWatchability(summary);
+  const { score, base, tier, context, breakdown } = computeWatchability(summary);
   return {
     id: gameId,
     away: summary.away,
@@ -48,6 +49,8 @@ export async function getReveal(gameId: string): Promise<GameReveal> {
     periods: summary.periods,
     watchScore: score,
     tier,
+    context,
+    base,
     breakdown,
   };
 }

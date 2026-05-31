@@ -91,16 +91,23 @@ export function GameCard({ preview }: { preview: GamePreview }) {
         {/* prawy klaster: tier + gauge + akcja */}
         <div className="flex items-center justify-between sm:justify-end gap-5 sm:gap-6">
           <div className="flex flex-col items-start sm:items-end gap-2">
-            <span
-              className="text-xs font-semibold px-3 py-1 rounded-full border whitespace-nowrap"
-              style={{
-                color: preview.tier.color,
-                borderColor: `${preview.tier.color}40`,
-                background: `${preview.tier.color}14`,
-              }}
-            >
-              {preview.tier.emoji} {preview.tier.label}
-            </span>
+            <div className="flex items-center gap-2">
+              {preview.context.kind !== "regular" && (
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-accent-2/20 text-[#aab8ff] border border-[#aab8ff]/30 whitespace-nowrap">
+                  {preview.context.label}
+                </span>
+              )}
+              <span
+                className="text-xs font-semibold px-3 py-1 rounded-full border whitespace-nowrap"
+                style={{
+                  color: preview.tier.color,
+                  borderColor: `${preview.tier.color}40`,
+                  background: `${preview.tier.color}14`,
+                }}
+              >
+                {preview.tier.emoji} {preview.tier.label}
+              </span>
+            </div>
             <span className="text-xs text-faint hidden sm:block">
               {error
                 ? "Błąd — kliknij ponownie"
@@ -181,7 +188,12 @@ export function GameCard({ preview }: { preview: GamePreview }) {
               </div>
 
               <BoxScoreTable away={data.away} home={data.home} />
-              <BreakdownList breakdown={data.breakdown} />
+              <BreakdownList
+                breakdown={data.breakdown}
+                context={data.context}
+                base={data.base}
+                score={data.watchScore}
+              />
             </div>
           )}
         </div>
