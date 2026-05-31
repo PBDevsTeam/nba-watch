@@ -48,3 +48,5 @@ home.html
 reveal.json
 .vercel
 .env*
+
+.vercel
