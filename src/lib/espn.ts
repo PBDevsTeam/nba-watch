@@ -2,6 +2,7 @@
 // Bez klucza, bez auth. Dane meczów zakończonych są statyczne -> mocno cache'ujemy.
 
 import type { PlayerLine, TeamBox, TeamInfo } from "./types";
+import { espnDateToEtIso } from "./dates";
 
 const SCOREBOARD =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard";
@@ -77,7 +78,7 @@ function parseScoreboardEvents(data: any): ScoreboardGame[] {
     const status = comp?.status ?? ev?.status ?? {};
     return {
       id: String(ev.id),
-      dateISO: (ev.date ?? "").slice(0, 10),
+      dateISO: espnDateToEtIso(ev.date ?? ""),
       completed: status?.type?.completed === true,
       periods: Number(status?.period ?? 4),
       away: parseTeam(away),
@@ -112,7 +113,7 @@ export async function getScoreboard(yyyymmdd: string): Promise<ScoreboardGame[]>
     const status = comp?.status ?? ev?.status ?? {};
     return {
       id: String(ev.id),
-      dateISO: (ev.date ?? "").slice(0, 10),
+      dateISO: espnDateToEtIso(ev.date ?? ""),
       completed: status?.type?.completed === true,
       periods: Number(status?.period ?? 4),
       away: parseTeam(away),
@@ -188,7 +189,7 @@ export async function getTeamSchedule(
       const status = comp?.status ?? {};
       return {
         id: String(ev.id),
-        dateISO: (ev.date ?? "").slice(0, 10),
+        dateISO: espnDateToEtIso(ev.date ?? ""),
         completed: status?.type?.completed === true,
         periods: Number(status?.period ?? 4),
         opponent: parseTeam(opp),

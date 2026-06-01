@@ -52,6 +52,25 @@ export function toEspnDate(iso: string): string {
   return iso.replace(/-/g, "");
 }
 
+/**
+ * Konwertuje znacznik czasu ESPN (UTC, np. "2025-02-04T03:00Z") na datę
+ * w strefie ET ("2025-02-03"). KLUCZOWE: ESPN podaje czas meczu w UTC, ale
+ * scoreboard indeksuje mecze wg daty ET (mecz wieczorem ET = następny dzień UTC).
+ * Użycie samego .slice(0,10) na UTC dawało rozjazd dat o 1 dzień.
+ */
+export function espnDateToEtIso(espnDate: string): string {
+  if (!espnDate) return "";
+  const d = new Date(espnDate);
+  if (isNaN(d.getTime())) return espnDate.slice(0, 10);
+  // en-CA daje format YYYY-MM-DD
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 /** Waliduje i normalizuje parametr daty; fallback do domyślnej. */
 export function normalizeDate(input: string | undefined): string {
   if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
