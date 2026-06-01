@@ -4,7 +4,8 @@ import { getTeamSeason } from "@/lib/games";
 import { SiteHeader } from "@/components/SiteHeader";
 import { formatShortPl } from "@/lib/dates";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+export const maxDuration = 60;
 
 // domyślny sezon = bieżący sezon NBA (rok zakończenia). NBA 2024/25 -> 2025.
 const SEASON = 2025;

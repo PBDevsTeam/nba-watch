@@ -5,8 +5,10 @@ import type { RankingRow, TopGame } from "@/lib/games";
 import { SiteHeader } from "@/components/SiteHeader";
 import { todayISO, shiftDate, formatShortPl } from "@/lib/dates";
 
-export const dynamic = "force-dynamic";
+// ISR: pierwsze żądanie generuje pełny ranking (pełny model + cache per mecz),
+// kolejne serwowane z cache, regeneracja w tle co godzinę.
 export const revalidate = 3600;
+export const maxDuration = 60;
 
 const SEASON = 2025;
 

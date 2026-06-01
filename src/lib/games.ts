@@ -9,30 +9,30 @@ import {
 } from "./espn";
 import type { PbpPoint } from "./espn";
 import { toEspnDate } from "./dates";
-import { computeWatchability, quickScore } from "./watchability";
+import { computeWatchability } from "./watchability";
+import { getCachedScores } from "./scores";
 import type { FlowPoint, GamePreview, GameReveal, TeamInfo, WatchTier } from "./types";
 
 /**
- * Najlepszy heurystyczny wskaźnik dla KAŻDEGO dnia w zakresie (np. miesiąc).
- * Zwraca mapę { "YYYY-MM-DD": bestScore }. Zasila heatmapę kalendarza —
- * użytkownik widzi które dni miały dobre mecze bez klikania dzień po dniu.
+ * Najlepszy wskaźnik dla KAŻDEGO dnia w zakresie (np. miesiąc), liczony PEŁNYM
+ * modelem (z cache per mecz). Zwraca mapę { "YYYY-MM-DD": bestScore }. Zasila
+ * heatmapę kalendarza — kropka = dokładnie ta sama ocena co po wejściu w mecz.
  */
 export async function getDayHeat(
   fromIso: string,
   toIso: string
 ): Promise<Record<string, number>> {
-  const games = await getScoreboardRange(toEspnDate(fromIso), toEspnDate(toIso));
+  const games = (
+    await getScoreboardRange(toEspnDate(fromIso), toEspnDate(toIso))
+  ).filter((g) => g.completed && g.dateISO >= fromIso && g.dateISO <= toIso);
+
+  const scores = await getCachedScores(games.map((g) => g.id));
+
   const heat: Record<string, number> = {};
   for (const g of games) {
-    if (!g.completed) continue;
-    const { score } = quickScore({
-      homeScore: g.homeScore,
-      awayScore: g.awayScore,
-      periods: g.periods,
-      topPts: g.topPts,
-      seasonTypeName: g.seasonTypeName,
-    });
-    if (!heat[g.dateISO] || score > heat[g.dateISO]) heat[g.dateISO] = score;
+    const s = scores.get(g.id)?.score;
+    if (s === undefined) continue;
+    if (heat[g.dateISO] === undefined || s > heat[g.dateISO]) heat[g.dateISO] = s;
   }
   return heat;
 }
@@ -56,7 +56,7 @@ export type TeamSeasonView = {
 };
 
 /**
- * Mecze drużyny w sezonie z heurystycznym wskaźnikiem (bez box score — szybko).
+ * Mecze drużyny w sezonie z PEŁNYM wskaźnikiem (z cache per mecz).
  * Sortowane wg wskaźnika malejąco, by od razu pokazać "najlepsze mecze".
  */
 export async function getTeamSeason(
@@ -64,33 +64,28 @@ export async function getTeamSeason(
   season: number
 ): Promise<TeamSeasonView> {
   const { team, games } = await getTeamSchedule(teamId, season);
+  const scores = await getCachedScores(games.map((g) => g.id));
 
-  const rows: TeamGameRow[] = games.map((g) => {
-    const isHome = g.isHome;
-    const homeScore = isHome ? g.teamScore : g.oppScore;
-    const awayScore = isHome ? g.oppScore : g.teamScore;
-    const { score, tier } = quickScore({
-      homeScore,
-      awayScore,
-      periods: g.periods,
-      topPts: g.topPts,
-      seasonTypeName: "Regular Season",
-    });
-    return {
-      id: g.id,
-      dateISO: g.dateISO,
-      opponent: g.opponent,
-      isHome,
-      watchScore: score,
-      tier,
-    };
-  });
+  const rows: TeamGameRow[] = games
+    .map((g): TeamGameRow | null => {
+      const cs = scores.get(g.id);
+      if (!cs) return null;
+      return {
+        id: g.id,
+        dateISO: g.dateISO,
+        opponent: g.opponent,
+        isHome: g.isHome,
+        watchScore: cs.score,
+        tier: cs.tier,
+      };
+    })
+    .filter((r): r is TeamGameRow => r !== null);
 
-  const scores = rows.map((r) => r.watchScore);
-  const avgScore = scores.length
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  const scoreVals = rows.map((r) => r.watchScore);
+  const avgScore = scoreVals.length
+    ? Math.round(scoreVals.reduce((a, b) => a + b, 0) / scoreVals.length)
     : 0;
-  const bestScore = scores.length ? Math.max(...scores) : 0;
+  const bestScore = scoreVals.length ? Math.max(...scoreVals) : 0;
 
   rows.sort((a, b) => b.watchScore - a.watchScore);
 
@@ -109,34 +104,35 @@ export type TopGame = {
 };
 
 /**
- * Top mecze z zakresu dat (heurystyka, jeden request na cały zakres).
- * Domyślnie używane do "Top 10 do obejrzenia" w rankingu.
+ * Top mecze z zakresu dat, PEŁNY model (z cache per mecz).
+ * Używane do "Top 10 do obejrzenia" w rankingu.
  */
 export async function getTopGames(
   fromIso: string,
   toIso: string,
   limit = 10
 ): Promise<TopGame[]> {
-  const games = await getScoreboardRange(toEspnDate(fromIso), toEspnDate(toIso));
+  const games = (
+    await getScoreboardRange(toEspnDate(fromIso), toEspnDate(toIso))
+  ).filter((g) => g.completed && g.dateISO >= fromIso && g.dateISO <= toIso);
+
+  const scores = await getCachedScores(games.map((g) => g.id));
+
   const scored: TopGame[] = games
-    .filter((g) => g.completed)
-    .map((g) => {
-      const { score, tier } = quickScore({
-        homeScore: g.homeScore,
-        awayScore: g.awayScore,
-        periods: g.periods,
-        topPts: g.topPts,
-        seasonTypeName: g.seasonTypeName,
-      });
+    .map((g): TopGame | null => {
+      const cs = scores.get(g.id);
+      if (!cs) return null;
       return {
         id: g.id,
         dateISO: g.dateISO,
         home: g.home,
         away: g.away,
-        watchScore: score,
-        tier,
+        watchScore: cs.score,
+        tier: cs.tier,
       };
-    });
+    })
+    .filter((t): t is TopGame => t !== null);
+
   scored.sort((a, b) => b.watchScore - a.watchScore);
   return scored.slice(0, limit);
 }

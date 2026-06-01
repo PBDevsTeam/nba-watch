@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDayHeat } from "@/lib/games";
 
+export const maxDuration = 60;
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from") ?? "";
