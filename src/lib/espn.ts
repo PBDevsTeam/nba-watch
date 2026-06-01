@@ -173,7 +173,8 @@ export async function getTeamSchedule(
     name: teamRaw.displayName ?? teamRaw.name ?? "—",
     shortName: teamRaw.shortDisplayName ?? teamRaw.name ?? "—",
     abbreviation: teamRaw.abbreviation ?? "",
-    logo: teamRaw.logos?.[0]?.href ?? null,
+    // schedule zwraca logo jako string `team.logo`, nie tablicę `logos[]`
+    logo: teamRaw.logo ?? teamRaw.logos?.[0]?.href ?? null,
     color: teamRaw.color ?? null,
   };
 

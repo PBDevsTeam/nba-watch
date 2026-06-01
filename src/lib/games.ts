@@ -99,12 +99,73 @@ export async function getTeamSeason(
 
 export { getTeams };
 
+export type TopGame = {
+  id: string;
+  dateISO: string;
+  home: TeamInfo;
+  away: TeamInfo;
+  watchScore: number;
+  tier: WatchTier;
+};
+
+/**
+ * Top mecze z zakresu dat (heurystyka, jeden request na cały zakres).
+ * Domyślnie używane do "Top 10 do obejrzenia" w rankingu.
+ */
+export async function getTopGames(
+  fromIso: string,
+  toIso: string,
+  limit = 10
+): Promise<TopGame[]> {
+  const games = await getScoreboardRange(toEspnDate(fromIso), toEspnDate(toIso));
+  const scored: TopGame[] = games
+    .filter((g) => g.completed)
+    .map((g) => {
+      const { score, tier } = quickScore({
+        homeScore: g.homeScore,
+        awayScore: g.awayScore,
+        periods: g.periods,
+        topPts: g.topPts,
+        seasonTypeName: g.seasonTypeName,
+      });
+      return {
+        id: g.id,
+        dateISO: g.dateISO,
+        home: g.home,
+        away: g.away,
+        watchScore: score,
+        tier,
+      };
+    });
+  scored.sort((a, b) => b.watchScore - a.watchScore);
+  return scored.slice(0, limit);
+}
+
+export type Conference = "east" | "west";
+
+/** Stała przynależność do konferencji (NBA nie zmienia tego między sezonami). */
+const CONFERENCE: Record<string, Conference> = {
+  // Wschód
+  BOS: "east", BKN: "east", NY: "east", PHI: "east", TOR: "east",
+  CHI: "east", CLE: "east", DET: "east", IND: "east", MIL: "east",
+  ATL: "east", CHA: "east", MIA: "east", ORL: "east", WSH: "east",
+  // Zachód
+  DEN: "west", MIN: "west", OKC: "west", POR: "west", UTAH: "west",
+  GS: "west", LAC: "west", LAL: "west", PHX: "west", SAC: "west",
+  DAL: "west", HOU: "west", MEM: "west", NO: "west", SA: "west",
+};
+
+export function conferenceOf(abbr: string): Conference | null {
+  return CONFERENCE[abbr] ?? null;
+}
+
 export type RankingRow = {
   team: TeamInfo;
   avgScore: number;
   bestScore: number;
   played: number;
   mustWatch: number; // mecze >=85
+  conference: Conference | null;
 };
 
 /**
@@ -124,6 +185,7 @@ export async function getSeasonRanking(season: number): Promise<RankingRow[]> {
           bestScore: view.bestScore,
           played: view.played,
           mustWatch,
+          conference: conferenceOf(view.team.abbreviation),
         };
       } catch {
         return null;
