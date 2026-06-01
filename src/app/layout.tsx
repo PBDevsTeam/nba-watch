@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Archivo, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const sans = Hanken_Grotesk({
@@ -12,10 +12,10 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const display = Bricolage_Grotesque({
+const display = Archivo({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: ["600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -32,14 +32,6 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${mono.variable} ${display.variable} antialiased`}
       >
-        {/* żywa atmosfera pod szkłem */}
-        <div className="atmos" aria-hidden="true">
-          <span className="orb orb-1" />
-          <span className="orb orb-2" />
-          <span className="orb orb-3" />
-          <span className="orb orb-4" />
-        </div>
-        <div className="grain" aria-hidden="true" />
         {children}
       </body>
     </html>

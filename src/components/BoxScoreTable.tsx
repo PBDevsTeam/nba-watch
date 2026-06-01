@@ -7,78 +7,67 @@ function TeamTable({ box, won }: { box: TeamBox; won: boolean }) {
   const topPts = players.reduce((m, p) => Math.max(m, p.pts), 0);
 
   return (
-    <div className="glass-soft rounded-2xl overflow-hidden min-w-0">
+    <div className="border border-border rounded-md bg-surface overflow-hidden min-w-0">
       {/* nagłówek drużyny */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/10">
+      <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-border bg-surface-hover">
         {box.team.logo && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={box.team.logo} alt="" className="h-7 w-7" />
+          <img src={box.team.logo} alt="" className="h-6 w-6" />
         )}
-        <div className="min-w-0">
-          <div className="font-display font-bold leading-tight truncate flex items-center gap-2">
-            {box.team.shortName}
-            {won && (
-              <span className="text-[10px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded bg-accent/20 text-accent-soft">
-                W
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-faint">{box.team.name}</div>
-        </div>
-        <span className="font-display text-2xl font-extrabold ml-auto tabular-nums">
+        <span className="font-display font-bold text-sm">{box.team.shortName}</span>
+        {won && (
+          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-accent text-bg">
+            W
+          </span>
+        )}
+        <span className="font-display text-xl font-black ml-auto tabular-nums">
           {box.score}
         </span>
       </div>
 
-      {/* tabela */}
-      <div className="overflow-x-auto scroll-thin">
-        <table className="w-full text-[13px] min-w-[34rem]">
-          <thead>
-            <tr className="text-faint text-left text-[11px] uppercase tracking-wider">
-              <th className="font-medium py-2 pl-4 pr-2">Zawodnik</th>
-              <th className="font-medium py-2 px-2 text-right">MIN</th>
-              <th className="font-medium py-2 px-2 text-right">PKT</th>
-              <th className="font-medium py-2 px-2 text-right">ZB</th>
-              <th className="font-medium py-2 px-2 text-right">AS</th>
-              <th className="font-medium py-2 px-2 text-right">PRZ</th>
-              <th className="font-medium py-2 px-2 text-right">BLK</th>
-              <th className="font-medium py-2 px-2 text-right">FG</th>
-              <th className="font-medium py-2 pl-2 pr-4 text-right">3PT</th>
-            </tr>
-          </thead>
-          <tbody className="font-mono tabular-nums">
-            {players.map((p) => {
-              const isTop = p.pts === topPts && topPts > 0;
-              return (
-                <tr
-                  key={p.name}
-                  className="border-t border-white/[0.06] hover:bg-white/[0.04] transition-colors"
+      {/* tabela — kluczowe kolumny, mieszczą się bez poziomego scrolla */}
+      <table className="w-full text-[13px] table-fixed">
+        <thead>
+          <tr className="text-faint text-left text-[10px] uppercase tracking-wider bg-surface-2">
+            <th className="font-semibold py-1.5 pl-3 pr-2 w-auto">Zawodnik</th>
+            <th className="font-semibold py-1.5 px-1 text-right w-10">MIN</th>
+            <th className="font-semibold py-1.5 px-1 text-right w-10">PKT</th>
+            <th className="font-semibold py-1.5 px-1 text-right w-9">ZB</th>
+            <th className="font-semibold py-1.5 px-1 text-right w-9">AS</th>
+            <th className="font-semibold py-1.5 px-1 text-right w-9">PRZ</th>
+            <th className="font-semibold py-1.5 pl-1 pr-3 text-right w-9">BLK</th>
+          </tr>
+        </thead>
+        <tbody className="font-mono tabular-nums">
+          {players.map((p) => {
+            const isTop = p.pts === topPts && topPts > 0;
+            return (
+              <tr
+                key={p.name}
+                className="border-t border-border/60 hover:bg-surface-hover transition-colors"
+              >
+                <td className="py-1.5 pl-3 pr-2 font-sans truncate">
+                  <span className={isTop ? "text-accent font-semibold" : ""}>
+                    {p.name}
+                  </span>
+                </td>
+                <td className="py-1.5 px-1 text-right text-faint">{p.min}</td>
+                <td
+                  className={`py-1.5 px-1 text-right font-bold ${
+                    isTop ? "text-accent" : "text-text"
+                  }`}
                 >
-                  <td className="py-2 pl-4 pr-2 font-sans truncate max-w-[11rem]">
-                    <span className={isTop ? "text-accent-soft font-semibold" : ""}>
-                      {p.name}
-                    </span>
-                  </td>
-                  <td className="py-2 px-2 text-right text-faint">{p.min}</td>
-                  <td
-                    className={`py-2 px-2 text-right font-semibold ${
-                      isTop ? "text-accent-soft" : "text-text"
-                    }`}
-                  >
-                    {p.pts}
-                  </td>
-                  <td className="py-2 px-2 text-right text-muted">{p.reb}</td>
-                  <td className="py-2 px-2 text-right text-muted">{p.ast}</td>
-                  <td className="py-2 px-2 text-right text-faint">{p.stl}</td>
-                  <td className="py-2 px-2 text-right text-faint">{p.blk}</td>
-                  <td className="py-2 px-2 text-right text-faint">{p.fg}</td>
-                  <td className="py-2 pl-2 pr-4 text-right text-faint">{p.tp}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  {p.pts}
+                </td>
+                <td className="py-1.5 px-1 text-right text-muted">{p.reb}</td>
+                <td className="py-1.5 px-1 text-right text-muted">{p.ast}</td>
+                <td className="py-1.5 px-1 text-right text-faint">{p.stl}</td>
+                <td className="py-1.5 pl-1 pr-3 text-right text-faint">{p.blk}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -92,7 +81,7 @@ export function BoxScoreTable({
 }) {
   const awayWon = away.score > home.score;
   return (
-    <div className="grid lg:grid-cols-2 gap-4">
+    <div className="grid lg:grid-cols-2 gap-3">
       <TeamTable box={away} won={awayWon} />
       <TeamTable box={home} won={!awayWon} />
     </div>

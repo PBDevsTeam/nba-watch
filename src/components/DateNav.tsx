@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import {
   addMonths,
   formatMonthPl,
@@ -18,7 +17,7 @@ export function DateNav({ date }: { date: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState(() => date); // miesiąc widoczny w kalendarzu
+  const [view, setView] = useState(() => date);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   function go(iso: string) {
@@ -26,7 +25,6 @@ export function DateNav({ date }: { date: string }) {
     startTransition(() => router.push(`/?date=${iso}`));
   }
 
-  // zamknięcie: klik poza / Escape
   useEffect(() => {
     if (!open) return;
     function onDown(e: MouseEvent) {
@@ -45,7 +43,6 @@ export function DateNav({ date }: { date: string }) {
     };
   }, [open]);
 
-  // po otwarciu ustaw widok na miesiąc wybranej daty
   useEffect(() => {
     if (open) setView(date);
   }, [open, date]);
@@ -55,34 +52,29 @@ export function DateNav({ date }: { date: string }) {
   const nextDisabled = isFuture(next);
   const today = todayISO();
   const cells = monthGrid(view);
-  // blokuj nawigację do miesięcy całkowicie w przyszłości
-  const nextMonthFirst = addMonths(view, 1);
-  const monthForwardDisabled = nextMonthFirst > today;
+  const monthForwardDisabled = addMonths(view, 1) > today;
+
+  const btn =
+    "h-9 w-9 grid place-items-center border border-border bg-surface text-muted hover:text-text hover:border-border-strong transition-colors rounded-sm";
 
   return (
-    <div className="flex items-center justify-center gap-2.5 flex-wrap">
-      {/* poprzedni dzień */}
-      <button
-        onClick={() => go(prev)}
-        className="h-11 w-11 rounded-xl glass-soft glass-hover text-muted hover:text-text flex items-center justify-center text-xl"
-        aria-label="Poprzedni dzień"
-      >
+    <div className="flex items-center gap-1.5" ref={wrapRef}>
+      <button onClick={() => go(prev)} className={btn} aria-label="Poprzedni dzień">
         ‹
       </button>
 
-      {/* trigger + popover */}
-      <div className="relative" ref={wrapRef}>
+      <div className="relative">
         <button
           onClick={() => setOpen((o) => !o)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          className={`min-w-[15rem] h-11 px-5 rounded-xl glass-soft glass-hover font-display font-semibold flex items-center justify-center gap-2.5 ${
+          className={`h-9 px-3 sm:min-w-[11rem] border border-border bg-surface hover:border-border-strong rounded-sm font-display font-semibold text-sm flex items-center justify-center gap-2 transition-colors ${
             pending ? "opacity-60" : ""
           }`}
         >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" className="text-accent-soft">
-            <rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="text-accent shrink-0">
+            <rect x="3" y="4.5" width="18" height="16" rx="1.5" stroke="currentColor" strokeWidth="2" />
+            <path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           {formatShortPl(date)}
         </button>
@@ -91,46 +83,43 @@ export function DateNav({ date }: { date: string }) {
           <div
             role="dialog"
             aria-label="Wybór daty"
-            className="absolute left-1/2 -translate-x-1/2 mt-3 z-50 w-[20rem] glass rounded-2xl p-4 animate-pop"
+            className="absolute right-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 z-50 w-[19rem] border border-border-strong bg-surface rounded-md shadow-2xl p-3"
           >
-            {/* nagłówek miesiąca */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => setView(addMonths(view, -1))}
-                className="h-8 w-8 rounded-lg hover:bg-white/10 text-muted hover:text-text flex items-center justify-center"
+                className="h-8 w-8 grid place-items-center rounded-sm hover:bg-surface-hover text-muted hover:text-text"
                 aria-label="Poprzedni miesiąc"
               >
                 ‹
               </button>
-              <span className="font-display font-semibold capitalize">
+              <span className="font-display font-bold text-sm capitalize">
                 {formatMonthPl(view)}
               </span>
               <button
                 onClick={() => !monthForwardDisabled && setView(addMonths(view, 1))}
                 disabled={monthForwardDisabled}
-                className="h-8 w-8 rounded-lg hover:bg-white/10 text-muted hover:text-text flex items-center justify-center disabled:opacity-25 disabled:hover:bg-transparent"
+                className="h-8 w-8 grid place-items-center rounded-sm hover:bg-surface-hover text-muted hover:text-text disabled:opacity-25 disabled:hover:bg-transparent"
                 aria-label="Następny miesiąc"
               >
                 ›
               </button>
             </div>
 
-            {/* dni tygodnia */}
             <div className="grid grid-cols-7 gap-1 mb-1">
               {PL_WEEKDAYS_SHORT_MON.map((d) => (
                 <div
                   key={d}
-                  className="h-7 flex items-center justify-center text-[11px] font-mono uppercase text-faint"
+                  className="h-7 grid place-items-center text-[11px] font-mono uppercase text-faint"
                 >
                   {d}
                 </div>
               ))}
             </div>
 
-            {/* siatka dni */}
             <div className="grid grid-cols-7 gap-1">
               {cells.map((iso, i) => {
-                if (!iso) return <div key={`e${i}`} className="h-9" />;
+                if (!iso) return <div key={`e${i}`} className="h-8" />;
                 const disabled = isFuture(iso);
                 const selected = iso === date;
                 const isToday = iso === today;
@@ -141,17 +130,17 @@ export function DateNav({ date }: { date: string }) {
                     onClick={() => !disabled && go(iso)}
                     disabled={disabled}
                     className={[
-                      "h-9 rounded-lg text-sm font-mono tabular-nums flex items-center justify-center transition-colors relative",
+                      "h-8 rounded-sm text-sm font-mono tabular-nums grid place-items-center transition-colors relative",
                       selected
-                        ? "bg-accent text-[#06070d] font-bold"
+                        ? "bg-accent text-bg font-bold"
                         : disabled
                         ? "text-faint/40 cursor-not-allowed"
-                        : "text-text hover:bg-white/10",
+                        : "text-text hover:bg-surface-hover",
                     ].join(" ")}
                   >
                     {dayNum}
                     {isToday && !selected && (
-                      <span className="absolute bottom-1 h-1 w-1 rounded-full bg-accent-soft" />
+                      <span className="absolute bottom-1 h-1 w-1 rounded-full bg-accent" />
                     )}
                   </button>
                 );
@@ -160,7 +149,7 @@ export function DateNav({ date }: { date: string }) {
 
             <button
               onClick={() => go(today)}
-              className="mt-3 w-full h-9 rounded-lg glass-soft glass-hover text-sm font-medium text-muted hover:text-text"
+              className="mt-2 w-full h-8 rounded-sm border border-border bg-surface hover:border-border-strong text-sm font-medium text-muted hover:text-text transition-colors"
             >
               Dziś
             </button>
@@ -168,11 +157,10 @@ export function DateNav({ date }: { date: string }) {
         )}
       </div>
 
-      {/* następny dzień */}
       <button
         onClick={() => !nextDisabled && go(next)}
         disabled={nextDisabled}
-        className="h-11 w-11 rounded-xl glass-soft glass-hover text-muted hover:text-text flex items-center justify-center text-xl disabled:opacity-25"
+        className={`${btn} disabled:opacity-25`}
         aria-label="Następny dzień"
       >
         ›
