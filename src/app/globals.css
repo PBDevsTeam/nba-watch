@@ -27,14 +27,17 @@
 
 html {
   scroll-behavior: smooth;
+  /* baza tła na <html> — dzięki temu .atmos (z-index:-1, dziecko body) jest
+     malowane NAD tłem, a nie chowane za nieprzezroczystym tłem body. */
+  background: #06070d;
 }
 
-html,
 body {
-  background: var(--color-bg);
+  position: relative;
   color: var(--color-text);
   font-family: var(--font-sans), system-ui, sans-serif;
   min-height: 100%;
+  background: transparent;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -48,82 +51,89 @@ body {
    ============================================================ */
 .atmos {
   position: fixed;
-  inset: -20vmax;
-  z-index: -2;
+  inset: 0;
+  z-index: -1;
   pointer-events: none;
   overflow: hidden;
-  filter: saturate(125%);
+}
+.atmos::before {
+  /* przyciemniająca baza, by orby nie wypaliły bieli */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #06070d;
 }
 .orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.55;
+  filter: blur(90px);
   will-change: transform;
 }
 .orb-1 {
-  width: 46vmax;
-  height: 46vmax;
-  left: 55%;
-  top: -8%;
-  background: radial-gradient(circle at 30% 30%, #ff7a2e, transparent 65%);
+  width: 50vmax;
+  height: 50vmax;
+  left: 52%;
+  top: -12%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 122, 46, 0.55), transparent 62%);
   animation: drift1 26s ease-in-out infinite alternate;
 }
 .orb-2 {
-  width: 40vmax;
-  height: 40vmax;
-  left: -10%;
-  top: 18%;
-  background: radial-gradient(circle at 50% 50%, #5b6bff, transparent 65%);
+  width: 44vmax;
+  height: 44vmax;
+  left: -12%;
+  top: 14%;
+  background: radial-gradient(circle at 50% 50%, rgba(91, 107, 255, 0.5), transparent 62%);
   animation: drift2 32s ease-in-out infinite alternate;
 }
 .orb-3 {
-  width: 34vmax;
-  height: 34vmax;
-  left: 30%;
-  top: 55%;
-  background: radial-gradient(circle at 50% 50%, #ff2d8e, transparent 65%);
+  width: 38vmax;
+  height: 38vmax;
+  left: 28%;
+  top: 52%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 45, 142, 0.4), transparent 62%);
   animation: drift3 38s ease-in-out infinite alternate;
-  opacity: 0.4;
 }
 .orb-4 {
-  width: 30vmax;
-  height: 30vmax;
-  left: 72%;
-  top: 60%;
-  background: radial-gradient(circle at 50% 50%, #15d0c0, transparent 65%);
+  width: 34vmax;
+  height: 34vmax;
+  left: 70%;
+  top: 58%;
+  background: radial-gradient(circle at 50% 50%, rgba(21, 208, 192, 0.34), transparent 62%);
   animation: drift1 30s ease-in-out infinite alternate-reverse;
-  opacity: 0.32;
 }
 
 @keyframes drift1 {
   from { transform: translate3d(0, 0, 0) scale(1); }
-  to   { transform: translate3d(-8vmax, 6vmax, 0) scale(1.12); }
+  to   { transform: translate3d(-8vmax, 6vmax, 0) scale(1.14); }
 }
 @keyframes drift2 {
   from { transform: translate3d(0, 0, 0) scale(1); }
-  to   { transform: translate3d(7vmax, -5vmax, 0) scale(1.1); }
+  to   { transform: translate3d(7vmax, -5vmax, 0) scale(1.12); }
 }
 @keyframes drift3 {
   from { transform: translate3d(0, 0, 0) scale(1); }
-  to   { transform: translate3d(5vmax, -7vmax, 0) scale(1.15); }
+  to   { transform: translate3d(5vmax, -7vmax, 0) scale(1.16); }
 }
 
-/* delikatne ziarno na całości — nadaje szkłu „filmowy" charakter */
+/* delikatne ziarno + winieta na całości — „filmowy" charakter szkła */
 .grain {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.04;
+}
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-/* subtelna winieta dla głębi */
 .grain::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  background: radial-gradient(125% 95% at 50% 0%, transparent 52%, rgba(0, 0, 0, 0.6) 100%);
 }
 
 /* ============================================================
@@ -131,40 +141,41 @@ body {
    ============================================================ */
 .glass {
   background: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.08),
-    rgba(255, 255, 255, 0.02)
+    150deg,
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.025) 55%,
+    rgba(255, 255, 255, 0.05)
   );
-  backdrop-filter: blur(22px) saturate(135%);
-  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  backdrop-filter: blur(26px) saturate(140%);
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
-    0 20px 50px -20px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 24px 60px -24px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 .glass-soft {
   background: linear-gradient(
-    145deg,
+    150deg,
     rgba(255, 255, 255, 0.06),
-    rgba(255, 255, 255, 0.015)
+    rgba(255, 255, 255, 0.018)
   );
-  backdrop-filter: blur(14px) saturate(125%);
-  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .glass-hover {
   transition:
-    border-color 0.35s ease,
-    box-shadow 0.35s ease,
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .glass-hover:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 28px 60px -22px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+    0 32px 70px -26px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transform: translateY(-3px);
 }
 
 /* ============================================================
@@ -196,7 +207,6 @@ body {
   background: transparent;
 }
 
-/* cieńszy wariant do wnętrza kart / tabel */
 .scroll-thin::-webkit-scrollbar {
   width: 8px;
   height: 8px;
