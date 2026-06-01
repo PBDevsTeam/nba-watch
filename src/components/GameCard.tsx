@@ -5,6 +5,7 @@ import type { GamePreview, GameReveal, TeamInfo } from "@/lib/types";
 import { ScoreGauge } from "./ScoreGauge";
 import { BoxScoreTable } from "./BoxScoreTable";
 import { BreakdownList } from "./BreakdownList";
+import { ScoreFlow } from "./ScoreFlow";
 
 function TeamLine({ team }: { team: TeamInfo }) {
   return (
@@ -161,6 +162,14 @@ export function GameCard({
                 )}
               </div>
 
+              {data.flow && data.flow.length > 1 && (
+                <ScoreFlow
+                  flow={data.flow}
+                  home={data.home.team}
+                  away={data.away.team}
+                  periods={data.periods}
+                />
+              )}
               <BoxScoreTable away={data.away} home={data.home} />
               <BreakdownList
                 breakdown={data.breakdown}

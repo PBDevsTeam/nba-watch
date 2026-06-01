@@ -291,3 +291,40 @@ export function computeWatchability(game: GameSummary): Watchability {
     breakdown: factors,
   };
 }
+
+// --- LEKKA HEURYSTYKA (bez box score) --------------------------------------
+//
+// Szybkie przybliżenie wskaźnika z samego scoreboardu/harmonogramu — do
+// kalendarza, list drużyn i rankingów, gdzie pobieranie box score każdego
+// meczu byłoby zbyt wolne i obciążałoby ESPN. Ta sama skala i te same krzywe
+// co model pełny, ale tylko z dostępnych pól: różnica, suma pkt, dogrywka,
+// najlepszy strzelec (z leaderów). Wynik bywa nieco niższy niż pełny, bo nie
+// zna triple-double ani dramatu z play-by-play — to świadomy kompromis.
+
+export type QuickInput = {
+  homeScore: number;
+  awayScore: number;
+  periods: number;
+  topPts: number;
+  seasonTypeName: string;
+};
+
+export function quickScore(g: QuickInput): { score: number; tier: WatchTier } {
+  const margin = Math.abs(g.homeScore - g.awayScore);
+  const combined = g.homeScore + g.awayScore;
+
+  const closeness = clamp(
+    curve(margin, [[0, 90], [3, 82], [6, 64], [9, 46], [12, 30], [16, 14], [22, 0]])
+  );
+  const ot = overtimeFactor(g.periods).standalone;
+  const explosion = scoringExplosion({ name: "", pts: g.topPts }).standalone;
+  const shootout = shootoutFactor(combined).standalone;
+
+  const all = [closeness, ot, explosion, shootout].sort((a, b) => b - a);
+  const peak = all[0] ?? 0;
+  const base = 0.7 * peak + 0.3 * softOr(all.slice(1));
+
+  const context = contextFor(g.seasonTypeName);
+  const score = Math.round(clamp(base * context.multiplier));
+  return { score, tier: tierForScore(score) };
+}

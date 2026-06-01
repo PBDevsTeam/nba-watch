@@ -1,9 +1,168 @@
 // Orkiestracja: scoreboard + summary -> lekkie GamePreview (bez spoilerów).
 
-import { getGameSummary, getScoreboard } from "./espn";
+import {
+  getGameSummary,
+  getScoreboard,
+  getScoreboardRange,
+  getTeamSchedule,
+  getTeams,
+} from "./espn";
+import type { PbpPoint } from "./espn";
 import { toEspnDate } from "./dates";
-import { computeWatchability } from "./watchability";
-import type { GamePreview, GameReveal } from "./types";
+import { computeWatchability, quickScore } from "./watchability";
+import type { FlowPoint, GamePreview, GameReveal, TeamInfo, WatchTier } from "./types";
+
+/**
+ * Najlepszy heurystyczny wskaźnik dla KAŻDEGO dnia w zakresie (np. miesiąc).
+ * Zwraca mapę { "YYYY-MM-DD": bestScore }. Zasila heatmapę kalendarza —
+ * użytkownik widzi które dni miały dobre mecze bez klikania dzień po dniu.
+ */
+export async function getDayHeat(
+  fromIso: string,
+  toIso: string
+): Promise<Record<string, number>> {
+  const games = await getScoreboardRange(toEspnDate(fromIso), toEspnDate(toIso));
+  const heat: Record<string, number> = {};
+  for (const g of games) {
+    if (!g.completed) continue;
+    const { score } = quickScore({
+      homeScore: g.homeScore,
+      awayScore: g.awayScore,
+      periods: g.periods,
+      topPts: g.topPts,
+      seasonTypeName: g.seasonTypeName,
+    });
+    if (!heat[g.dateISO] || score > heat[g.dateISO]) heat[g.dateISO] = score;
+  }
+  return heat;
+}
+
+export type TeamGameRow = {
+  id: string;
+  dateISO: string;
+  opponent: TeamInfo;
+  isHome: boolean;
+  watchScore: number;
+  tier: WatchTier;
+};
+
+export type TeamSeasonView = {
+  team: TeamInfo;
+  season: number;
+  games: TeamGameRow[]; // posortowane wg wskaźnika malejąco
+  avgScore: number;
+  bestScore: number;
+  played: number;
+};
+
+/**
+ * Mecze drużyny w sezonie z heurystycznym wskaźnikiem (bez box score — szybko).
+ * Sortowane wg wskaźnika malejąco, by od razu pokazać "najlepsze mecze".
+ */
+export async function getTeamSeason(
+  teamId: string,
+  season: number
+): Promise<TeamSeasonView> {
+  const { team, games } = await getTeamSchedule(teamId, season);
+
+  const rows: TeamGameRow[] = games.map((g) => {
+    const isHome = g.isHome;
+    const homeScore = isHome ? g.teamScore : g.oppScore;
+    const awayScore = isHome ? g.oppScore : g.teamScore;
+    const { score, tier } = quickScore({
+      homeScore,
+      awayScore,
+      periods: g.periods,
+      topPts: g.topPts,
+      seasonTypeName: "Regular Season",
+    });
+    return {
+      id: g.id,
+      dateISO: g.dateISO,
+      opponent: g.opponent,
+      isHome,
+      watchScore: score,
+      tier,
+    };
+  });
+
+  const scores = rows.map((r) => r.watchScore);
+  const avgScore = scores.length
+    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    : 0;
+  const bestScore = scores.length ? Math.max(...scores) : 0;
+
+  rows.sort((a, b) => b.watchScore - a.watchScore);
+
+  return { team, season, games: rows, avgScore, bestScore, played: rows.length };
+}
+
+export { getTeams };
+
+export type RankingRow = {
+  team: TeamInfo;
+  avgScore: number;
+  bestScore: number;
+  played: number;
+  mustWatch: number; // mecze >=85
+};
+
+/**
+ * Ranking drużyn wg średniej "jakości" meczów w sezonie (heurystyka).
+ * Liczy 30 harmonogramów równolegle. Wynik mocno cache'owany przez ESPN revalidate.
+ */
+export async function getSeasonRanking(season: number): Promise<RankingRow[]> {
+  const teams = await getTeams();
+  const rows = await Promise.all(
+    teams.map(async (t): Promise<RankingRow | null> => {
+      try {
+        const view = await getTeamSeason(t.id, season);
+        const mustWatch = view.games.filter((g) => g.watchScore >= 85).length;
+        return {
+          team: view.team,
+          avgScore: view.avgScore,
+          bestScore: view.bestScore,
+          played: view.played,
+          mustWatch,
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+  return rows
+    .filter((r): r is RankingRow => r !== null && r.played > 0)
+    .sort((a, b) => b.avgScore - a.avgScore);
+}
+
+/**
+ * Buduje przebieg różnicy punktowej (home - away) z play-by-play.
+ * Próbkuje do ~90 punktów, by payload był lekki, zachowując kształt
+ * (comebacki, zmiany prowadzenia). t = postęp meczu 0..1.
+ */
+function buildFlow(pbp: PbpPoint[], periods: number): FlowPoint[] {
+  if (!pbp.length) return [];
+  const totalPeriods = Math.max(4, periods);
+  // czas meczu jako liczba: (period-1) + (1 - sec/dł_kwarty)
+  const periodLen = (p: number) => (p <= 4 ? 720 : 300); // 12 min / 5 min OT
+  const raw = pbp
+    .map((p) => {
+      const len = periodLen(p.period);
+      const elapsedInPeriod = p.sec === null ? 0 : (len - p.sec) / len;
+      const t = (p.period - 1 + elapsedInPeriod) / totalPeriods;
+      return { t: Math.max(0, Math.min(1, t)), diff: p.home - p.away, period: p.period };
+    })
+    .sort((a, b) => a.t - b.t);
+
+  // próbkowanie: max 90 punktów
+  const MAX = 90;
+  if (raw.length <= MAX) return raw;
+  const step = raw.length / MAX;
+  const out: FlowPoint[] = [];
+  for (let i = 0; i < MAX; i++) out.push(raw[Math.floor(i * step)]);
+  out.push(raw[raw.length - 1]); // zawsze ostatni (wynik końcowy)
+  return out;
+}
 
 /**
  * Zwraca podglądy meczów danego dnia, posortowane wg wskaźnika malejąco.
@@ -52,5 +211,6 @@ export async function getReveal(gameId: string): Promise<GameReveal> {
     context,
     base,
     breakdown,
+    flow: buildFlow(summary.pbp, summary.periods),
   };
 }

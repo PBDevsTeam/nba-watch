@@ -42,12 +42,33 @@ export type ScoreboardGame = {
   periods: number;
   away: TeamInfo;
   home: TeamInfo;
+  /** Wyniki ze scoreboardu (spoiler — używane TYLKO do liczenia heurystyki serwerowo). */
+  awayScore: number;
+  homeScore: number;
+  /** Najwięcej pkt w meczu wg leaderów scoreboardu (do heurystyki). */
+  topPts: number;
+  seasonTypeName: string;
 };
 
-/** Lista meczów danego dnia (YYYYMMDD). Tylko podstawowe info. */
-export async function getScoreboard(yyyymmdd: string): Promise<ScoreboardGame[]> {
-  const data = await fetchJson(`${SCOREBOARD}?dates=${yyyymmdd}`);
+function leadersTopPts(comp: any): number {
+  // scoreboard zawiera comp.competitors[].leaders[] z kategorią "points"
+  let best = 0;
+  for (const c of comp?.competitors ?? []) {
+    for (const cat of c?.leaders ?? []) {
+      if ((cat?.name ?? cat?.abbreviation ?? "").toLowerCase().includes("point")) {
+        for (const l of cat?.leaders ?? []) {
+          const v = Number(l?.value ?? 0);
+          if (v > best) best = v;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+function parseScoreboardEvents(data: any): ScoreboardGame[] {
   const events: any[] = data?.events ?? [];
+  const seasonTypeName: string = data?.season?.type?.name ?? "Regular Season";
   return events.map((ev) => {
     const comp = ev?.competitions?.[0] ?? {};
     const competitors: any[] = comp?.competitors ?? [];
@@ -61,8 +82,124 @@ export async function getScoreboard(yyyymmdd: string): Promise<ScoreboardGame[]>
       periods: Number(status?.period ?? 4),
       away: parseTeam(away),
       home: parseTeam(home),
+      awayScore: toInt(away?.score),
+      homeScore: toInt(home?.score),
+      topPts: leadersTopPts(comp),
+      seasonTypeName: ev?.season?.type?.name ?? seasonTypeName,
     };
   });
+}
+
+/** Mecze dla zakresu dat (YYYYMMDD-YYYYMMDD) — jeden request na cały miesiąc. */
+export async function getScoreboardRange(
+  fromYmd: string,
+  toYmd: string
+): Promise<ScoreboardGame[]> {
+  const data = await fetchJson(`${SCOREBOARD}?dates=${fromYmd}-${toYmd}&limit=400`);
+  return parseScoreboardEvents(data);
+}
+
+/** Lista meczów danego dnia (YYYYMMDD), z danymi do heurystyki. */
+export async function getScoreboard(yyyymmdd: string): Promise<ScoreboardGame[]> {
+  const data = await fetchJson(`${SCOREBOARD}?dates=${yyyymmdd}`);
+  const events: any[] = data?.events ?? [];
+  const seasonTypeName: string = data?.season?.type?.name ?? "Regular Season";
+  return events.map((ev) => {
+    const comp = ev?.competitions?.[0] ?? {};
+    const competitors: any[] = comp?.competitors ?? [];
+    const home = competitors.find((c) => c.homeAway === "home") ?? competitors[0];
+    const away = competitors.find((c) => c.homeAway === "away") ?? competitors[1];
+    const status = comp?.status ?? ev?.status ?? {};
+    return {
+      id: String(ev.id),
+      dateISO: (ev.date ?? "").slice(0, 10),
+      completed: status?.type?.completed === true,
+      periods: Number(status?.period ?? 4),
+      away: parseTeam(away),
+      home: parseTeam(home),
+      awayScore: toInt(away?.score),
+      homeScore: toInt(home?.score),
+      topPts: leadersTopPts(comp),
+      seasonTypeName: ev?.season?.type?.name ?? seasonTypeName,
+    };
+  });
+}
+
+// --- drużyny i harmonogram -------------------------------------------------
+
+const TEAMS = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+const TEAM = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+
+/** Wszystkie drużyny NBA (do strony przeglądania). */
+export async function getTeams(): Promise<TeamInfo[]> {
+  const data = await fetchJson(TEAMS);
+  const list: any[] = data?.sports?.[0]?.leagues?.[0]?.teams ?? [];
+  return list
+    .map((t) => {
+      const team = t?.team ?? {};
+      return {
+        id: String(team.id ?? ""),
+        name: team.displayName ?? team.name ?? "—",
+        shortName: team.shortDisplayName ?? team.name ?? "—",
+        abbreviation: team.abbreviation ?? "",
+        logo: team.logos?.[0]?.href ?? null,
+        color: team.color ?? null,
+      } as TeamInfo;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export type TeamScheduleGame = {
+  id: string;
+  dateISO: string;
+  completed: boolean;
+  periods: number;
+  opponent: TeamInfo;
+  isHome: boolean;
+  teamScore: number;
+  oppScore: number;
+  topPts: number;
+};
+
+/** Harmonogram drużyny w danym sezonie (rok zakończenia sezonu, np. 2025). */
+export async function getTeamSchedule(
+  teamId: string,
+  season: number
+): Promise<{ team: TeamInfo; games: TeamScheduleGame[] }> {
+  const data = await fetchJson(`${TEAM}/${teamId}/schedule?season=${season}`);
+  const teamRaw = data?.team ?? {};
+  const team: TeamInfo = {
+    id: String(teamRaw.id ?? teamId),
+    name: teamRaw.displayName ?? teamRaw.name ?? "—",
+    shortName: teamRaw.shortDisplayName ?? teamRaw.name ?? "—",
+    abbreviation: teamRaw.abbreviation ?? "",
+    logo: teamRaw.logos?.[0]?.href ?? null,
+    color: teamRaw.color ?? null,
+  };
+
+  const events: any[] = data?.events ?? [];
+  const games: TeamScheduleGame[] = events
+    .map((ev) => {
+      const comp = ev?.competitions?.[0] ?? {};
+      const competitors: any[] = comp?.competitors ?? [];
+      const mine = competitors.find((c) => String(c?.team?.id) === String(teamId));
+      const opp = competitors.find((c) => String(c?.team?.id) !== String(teamId));
+      const status = comp?.status ?? {};
+      return {
+        id: String(ev.id),
+        dateISO: (ev.date ?? "").slice(0, 10),
+        completed: status?.type?.completed === true,
+        periods: Number(status?.period ?? 4),
+        opponent: parseTeam(opp),
+        isHome: mine?.homeAway === "home",
+        teamScore: toInt(mine?.score?.value ?? mine?.score),
+        oppScore: toInt(opp?.score?.value ?? opp?.score),
+        topPts: leadersTopPts(comp),
+      };
+    })
+    .filter((g) => g.completed);
+
+  return { team, games };
 }
 
 /** Znajduje indeks statystyki po etykiecie (ESPN bywa niespójny w kolejności). */

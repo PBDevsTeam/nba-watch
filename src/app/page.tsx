@@ -1,7 +1,7 @@
 import { getPreviewsForDate } from "@/lib/games";
 import { normalizeDate, formatPl } from "@/lib/dates";
 import type { GamePreview } from "@/lib/types";
-import { DateNav } from "@/components/DateNav";
+import { SiteHeader } from "@/components/SiteHeader";
 import { GameCard } from "@/components/GameCard";
 
 export const dynamic = "force-dynamic";
@@ -41,19 +41,7 @@ export default async function Home({
   return (
     <div className="min-h-screen flex flex-col">
       {/* ---- TOPBAR (sticky) ---- */}
-      <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-md">
-        <div className="w-[92%] max-w-[1600px] mx-auto h-16 flex items-center justify-between gap-4">
-          <a href="/" className="flex items-center gap-2.5 shrink-0">
-            <span className="grid place-items-center h-9 w-9 bg-accent text-bg font-display font-black text-lg rounded-sm">
-              N
-            </span>
-            <span className="font-display font-extrabold text-lg tracking-tight hidden sm:block">
-              NBA<span className="text-accent">WATCH</span>
-            </span>
-          </a>
-          <DateNav date={date} />
-        </div>
-      </header>
+      <SiteHeader date={date} active="mecze" />
 
       {/* ---- CONTENT ---- */}
       <main className="w-[92%] max-w-[1600px] mx-auto flex-1 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-8 items-start">

@@ -47,12 +47,41 @@ export function DateNav({ date }: { date: string }) {
     if (open) setView(date);
   }, [open, date]);
 
+  // heatmapa: najlepszy wskaźnik per dzień w widocznym miesiącu
+  const [heat, setHeat] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!open) return;
+    const cells = monthGrid(view).filter(Boolean) as string[];
+    if (!cells.length) return;
+    const from = cells[0];
+    const to = cells[cells.length - 1];
+    let cancelled = false;
+    fetch(`/api/heat?from=${from}&to=${to}`)
+      .then((r) => (r.ok ? r.json() : { heat: {} }))
+      .then((d) => {
+        if (!cancelled) setHeat(d.heat ?? {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, view]);
+
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, 1);
   const nextDisabled = isFuture(next);
   const today = todayISO();
   const cells = monthGrid(view);
   const monthForwardDisabled = addMonths(view, 1) > today;
+
+  // kolor kropki heat wg progów tierów
+  function heatColor(score: number): string {
+    if (score >= 85) return "var(--color-t-must)";
+    if (score >= 70) return "var(--color-t-great)";
+    if (score >= 55) return "var(--color-t-good)";
+    if (score >= 40) return "var(--color-t-avg)";
+    return "var(--color-t-skip)";
+  }
 
   const btn =
     "h-9 w-9 grid place-items-center border border-border bg-surface text-muted hover:text-text hover:border-border-strong transition-colors rounded-sm";
@@ -124,13 +153,15 @@ export function DateNav({ date }: { date: string }) {
                 const selected = iso === date;
                 const isToday = iso === today;
                 const dayNum = Number(iso.slice(8, 10));
+                const dayHeat = heat[iso];
                 return (
                   <button
                     key={iso}
                     onClick={() => !disabled && go(iso)}
                     disabled={disabled}
+                    title={dayHeat ? `Najlepszy mecz: ${dayHeat}/100` : undefined}
                     className={[
-                      "h-8 rounded-sm text-sm font-mono tabular-nums grid place-items-center transition-colors relative",
+                      "h-9 rounded-sm text-sm font-mono tabular-nums grid place-items-center transition-colors relative",
                       selected
                         ? "bg-accent text-bg font-bold"
                         : disabled
@@ -139,12 +170,35 @@ export function DateNav({ date }: { date: string }) {
                     ].join(" ")}
                   >
                     {dayNum}
-                    {isToday && !selected && (
-                      <span className="absolute bottom-1 h-1 w-1 rounded-full bg-accent" />
+                    {/* kropka heat: kolor wg najlepszego meczu dnia */}
+                    {dayHeat !== undefined && !selected && (
+                      <span
+                        className="absolute bottom-1 h-1.5 w-1.5 rounded-full"
+                        style={{ background: heatColor(dayHeat) }}
+                      />
+                    )}
+                    {isToday && !selected && dayHeat === undefined && (
+                      <span className="absolute bottom-1 h-1 w-1 rounded-full bg-faint" />
                     )}
                   </button>
                 );
               })}
+            </div>
+
+            {/* legenda heat */}
+            <div className="flex items-center justify-center gap-3 mt-2.5 pt-2.5 border-t border-border text-[10px] text-faint">
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-t-must)" }} />
+                hit
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-t-good)" }} />
+                warto
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-t-skip)" }} />
+                słabo
+              </span>
             </div>
 
             <button

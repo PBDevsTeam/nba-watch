@@ -51,6 +51,13 @@ export type GamePreview = {
   context: WatchContext;
 };
 
+/** Punkt wykresu przebiegu: różnica (home - away) w danym momencie meczu. */
+export type FlowPoint = {
+  t: number; // 0..1 — postęp meczu
+  diff: number; // home - away (dodatnie = prowadzi gospodarz)
+  period: number;
+};
+
 /** Pełny obiekt po revealu — zawiera wynik i box score (spoilery). */
 export type GameReveal = {
   id: string;
@@ -62,6 +69,7 @@ export type GameReveal = {
   context: WatchContext;
   base: number; // wynik przed mnożnikiem kontekstu
   breakdown: WatchFactor[]; // posortowane malejąco wg standalone
+  flow: FlowPoint[]; // przebieg różnicy punktowej (z play-by-play)
 };
 
 export type WatchTier = {
