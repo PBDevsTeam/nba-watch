@@ -91,6 +91,99 @@ export function addMonths(iso: string, n: number): string {
   return isoFromDate(dt);
 }
 
+/** Liczba dni od `fromIso` do `toIso` (dodatnia, gdy toIso jest później). */
+export function daysBetween(fromIso: string, toIso: string): number {
+  const ms = (iso: string) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((ms(toIso) - ms(fromIso)) / 86_400_000);
+}
+
+// --- sezony -------------------------------------------------------------------
+//
+// Sezon NBA oznaczamy rokiem zakończenia (jak ESPN): 2027 = sezon 2026/27.
+// Nowy sezon liczymy od 1 października; do tego czasu "bieżący" jest ten,
+// który skończył się w czerwcu.
+
+export function seasonForDate(iso: string): number {
+  const [y, m] = iso.split("-").map(Number);
+  return m >= 10 ? y + 1 : y;
+}
+
+export function currentSeason(): number {
+  return seasonForDate(todayISO());
+}
+
+/** 2027 -> "2026/27". */
+export function seasonLabel(season: number): string {
+  return `${season - 1}/${String(season).slice(2)}`;
+}
+
+/** Sezony do wyboru: bieżący i dwa poprzednie. */
+export function selectableSeasons(): number[] {
+  const s = currentSeason();
+  return [s, s - 1, s - 2];
+}
+
+/** Waliduje parametr sezonu z URL; fallback do bieżącego. */
+export function normalizeSeason(input: string | undefined): number {
+  const n = Number(input);
+  return selectableSeasons().includes(n) ? n : currentSeason();
+}
+
+// --- czas polski -----------------------------------------------------------------
+
+const PL_TIME = new Intl.DateTimeFormat("pl-PL", {
+  timeZone: "Europe/Warsaw",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const PL_DATE = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Warsaw",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Data (YYYY-MM-DD) w Polsce dla znacznika czasu ISO. */
+export function plDateOf(startISO: string): string {
+  return PL_DATE.format(new Date(startISO));
+}
+
+/** Godzina rozpoczęcia w Polsce, np. "01:30". */
+export function formatTimePl(startISO: string): string {
+  return PL_TIME.format(new Date(startISO));
+}
+
+/**
+ * Nagłówek dnia meczowego z perspektywy kibica w Polsce. Mecze z 16 listopada
+ * (czasu USA) grane są zwykle w nocy z 16 na 17 listopada naszego czasu.
+ * Gdy choć jeden mecz zaczyna się jeszcze 16. (weekendowe popołudnia w USA),
+ * nie piszemy o nocy, tylko podajemy oba dni.
+ */
+export function nightTitle(iso: string, startISOs: string[]): string {
+  const next = shiftDate(iso, 1);
+  const [, m, d] = iso.split("-").map(Number);
+  const [, m2, d2] = next.split("-").map(Number);
+  const allNext = startISOs.length > 0 && startISOs.every((s) => plDateOf(s) === next);
+  const sameMonth = m === m2;
+  const range = sameMonth
+    ? `${d} na ${d2} ${PL_MONTHS[m - 1]}`
+    : `${d} ${PL_MONTHS[m - 1]} na ${d2} ${PL_MONTHS[m2 - 1]}`;
+  if (allNext) return `Noc z ${range}`;
+  return sameMonth
+    ? `${d}–${d2} ${PL_MONTHS[m - 1]}`
+    : `${d} ${PL_MONTHS[m - 1]} – ${d2} ${PL_MONTHS[m2 - 1]}`;
+}
+
+/** Skrót dnia tygodnia dla daty ISO, np. "pn". */
+export function weekdayShortPl(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return PL_WEEKDAYS_SHORT_MON[(wd + 6) % 7];
+}
+
 /** Czy dana data jest w przyszłości względem "dziś" w ET. */
 export function isFuture(iso: string): boolean {
   return iso > todayISO();

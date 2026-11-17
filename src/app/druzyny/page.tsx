@@ -1,72 +1,85 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getTeams } from "@/lib/games";
+import { ChevronRight } from "lucide-react";
+import { conferenceOf, getTeams } from "@/lib/games";
 import type { TeamInfo } from "@/lib/types";
-import { SiteHeader } from "@/components/SiteHeader";
+import { teamColor } from "@/lib/logo";
+import { SiteFooter } from "@/components/AppShell";
+import { EmptyState } from "@/components/blocks";
+import { TeamLogo } from "@/components/ui";
 
+// Dynamicznie: lista drużyn i tak jest w cache fetch przez dobę (lib/espn.ts),
+// a prerender przy buildzie utrwaliłby komunikat o błędzie, gdyby ESPN akurat nie odpowiadał.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Drużyny NBA",
-  description:
-    "Wybierz drużynę NBA i zobacz jej najlepsze mecze sezonu wg wskaźnika oglądalności.",
+  title: "Drużyny",
+  description: "Wybierz drużynę NBA i zobacz, które jej mecze w tym sezonie warto obejrzeć.",
 };
 
-function col(c: string | null, fb: string) {
-  if (!c) return fb;
-  return c.startsWith("#") ? c : `#${c}`;
+function TeamList({ title, teams }: { title: string; teams: TeamInfo[] }) {
+  return (
+    <section>
+      <h2 className="font-display text-2xl font-extrabold mb-3">{title}</h2>
+      <ul className="rounded-[var(--radius-panel)] bg-surface border border-line divide-y divide-line overflow-hidden">
+        {teams.map((t) => (
+          <li key={t.id}>
+            <Link
+              href={`/druzyna/${t.id}`}
+              className="group flex items-center gap-4 pl-0 pr-4 h-16 hover:bg-surface-hover transition-colors"
+            >
+              <span className="self-stretch w-1" style={{ background: teamColor(t.color) }} aria-hidden />
+              <TeamLogo team={t} size={36} />
+              <span className="min-w-0">
+                <span className="block font-semibold leading-tight truncate">{t.name}</span>
+                <span className="block text-sm text-faint">{t.abbreviation}</span>
+              </span>
+              <ChevronRight
+                size={18}
+                className="ml-auto text-faint group-hover:text-text transition-colors"
+                aria-hidden
+              />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export default async function TeamsPage() {
   let teams: TeamInfo[] = [];
-  let error = false;
   try {
     teams = await getTeams();
   } catch {
-    error = true;
+    // pusta lista -> komunikat niżej
   }
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <SiteHeader />
-      <main className="w-[92%] max-w-[1600px] mx-auto flex-1 py-6 lg:py-8">
-        <h1 className="font-display text-2xl font-extrabold mb-1">Drużyny</h1>
-        <p className="text-muted text-sm mb-6">
-          Wybierz drużynę, by zobaczyć jej najlepsze mecze tego sezonu.
-        </p>
+  const east = teams.filter((t) => conferenceOf(t.abbreviation) === "east");
+  const west = teams.filter((t) => conferenceOf(t.abbreviation) !== "east");
 
-        {error || teams.length === 0 ? (
-          <div className="border border-border rounded-md bg-surface py-16 text-center">
-            <p className="font-display text-lg font-bold">Nie udało się pobrać drużyn</p>
-            <p className="text-sm text-muted mt-1">Spróbuj odświeżyć stronę.</p>
-          </div>
+  return (
+    <>
+      <main className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 pt-6 lg:pt-10">
+        <h1 className="font-display text-[40px] sm:text-[52px] font-black leading-[0.92] tracking-tight">
+          Drużyny
+        </h1>
+        <p className="mt-3 mb-8 text-muted max-w-xl">
+          Wybierz drużynę, żeby zobaczyć wszystkie jej mecze w sezonie z oceną. Najlepsze
+          spotkania do nadrobienia znajdziesz na górze listy.
+        </p>
+        {teams.length === 0 ? (
+          <EmptyState title="Nie udało się wczytać drużyn">
+            ESPN nie odpowiedział. Odśwież stronę za chwilę.
+          </EmptyState>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-border border border-border rounded-md overflow-hidden">
-            {teams.map((t) => (
-              <Link
-                key={t.id}
-                href={`/druzyna/${t.id}`}
-                className="group bg-surface hover:bg-surface-hover transition-colors p-4 flex items-center gap-3 relative"
-              >
-                <span
-                  className="absolute left-0 top-0 bottom-0 w-1 opacity-70"
-                  style={{ background: col(t.color, "#ff6b2c") }}
-                />
-                {t.logo && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={t.logo} alt="" className="h-9 w-9 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <div className="font-display font-bold text-sm group-hover:text-accent transition-colors">
-                    {t.abbreviation}
-                  </div>
-                  <div className="text-xs text-muted truncate">{t.shortName}</div>
-                </div>
-              </Link>
-            ))}
+          <div className="grid gap-8 lg:grid-cols-2">
+            <TeamList title="Konferencja Wschodnia" teams={east} />
+            <TeamList title="Konferencja Zachodnia" teams={west} />
           </div>
         )}
       </main>
-    </div>
+      <SiteFooter />
+    </>
   );
 }

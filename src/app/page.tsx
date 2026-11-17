@@ -1,26 +1,130 @@
-import { getPreviewsForDate } from "@/lib/games";
-import { normalizeDate, formatPl } from "@/lib/dates";
-import type { GamePreview } from "@/lib/types";
-import { SiteHeader } from "@/components/SiteHeader";
-import { GameCard } from "@/components/GameCard";
+import { Suspense } from "react";
+import Link from "next/link";
+import { getPreviewsForDate, getTopGames } from "@/lib/games";
+import { formatPl, formatShortPl, nightTitle, normalizeDate, shiftDate, todayISO } from "@/lib/dates";
+import type { WatchTier } from "@/lib/types";
+import { DateStrip } from "@/components/DateStrip";
+import { GameRow } from "@/components/GameRow";
+import { SiteFooter } from "@/components/AppShell";
+import { EmptyState, ListSkeleton, NightHeat, TierLegend } from "@/components/blocks";
+import { Panel, ScoreBlock, TeamLogo } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-const TIERS = [
-  { range: "85–100", label: "Obowiązkowo", color: "var(--color-t-must)" },
-  { range: "70–84", label: "Bardzo warto", color: "var(--color-t-great)" },
-  { range: "55–69", label: "Warto", color: "var(--color-t-good)" },
-  { range: "40–54", label: "Przeciętny", color: "var(--color-t-avg)" },
-  { range: "0–39", label: "Można odpuścić", color: "var(--color-t-skip)" },
-];
+function countLabel(n: number): string {
+  if (n === 1) return "1 mecz";
+  const lastTwo = n % 100;
+  const last = n % 10;
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${n} mecze`;
+  return `${n} meczów`;
+}
 
-const FACTORS = [
-  "Dramat końcówki — jak blisko było w ostatnich minutach",
-  "Eksplozja punktowa — wybitny występ indywidualny",
-  "Wyczyn / rekord — triple-double, 50+ pkt, milowe statystyki",
-  "Wielki powrót — odrobiony deficyt",
-  "Dogrywka i festiwal ofensywy",
-];
+async function Night({ date }: { date: string }) {
+  let previews;
+  try {
+    previews = await getPreviewsForDate(date);
+  } catch {
+    return (
+      <EmptyState title="ESPN nie odpowiada">
+        Nie udało się pobrać meczów z tej nocy. Odśwież stronę za chwilę.
+      </EmptyState>
+    );
+  }
+
+  const weekday = formatPl(date).split(",")[0];
+  const title = nightTitle(
+    date,
+    previews.flatMap((p) => (p.startISO ? [p.startISO] : []))
+  );
+
+  if (previews.length === 0) {
+    return (
+      <>
+        <h1 className="font-display text-[40px] sm:text-[52px] font-black leading-[0.92] tracking-tight">
+          {title}
+        </h1>
+        <p className="mt-2 mb-6 text-muted">
+          <span className="capitalize">{weekday}</span> w USA.
+        </p>
+        <EmptyState
+          title="Tej nocy hala była pusta"
+          action={{ href: `/?date=${shiftDate(date, -1)}`, label: "Pokaż poprzednią noc" }}
+        >
+          Nie rozegrano żadnego meczu NBA. Wybierz inny dzień z paska powyżej albo z kalendarza.
+        </EmptyState>
+      </>
+    );
+  }
+
+  const rated = previews.filter((p) => p.tier !== null);
+  const worth = rated.filter((p) => (p.watchScore ?? 0) >= 55).length;
+  const pending = previews.length - rated.length;
+  const tiers = rated.map((p) => p.tier as WatchTier);
+
+  return (
+    <>
+      <h1 className="font-display text-[40px] sm:text-[52px] font-black leading-[0.92] tracking-tight">
+        {title}
+      </h1>
+      <div className="mt-3 mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <p className="text-muted">
+          <span className="capitalize">{weekday}</span> w USA. {countLabel(previews.length)}
+          {rated.length > 0 && <>, warte obejrzenia: {worth}</>}
+          {pending > 0 && rated.length > 0 && <>, jeszcze bez oceny: {pending}</>}. Godziny
+          czasu polskiego.
+        </p>
+        <NightHeat tiers={tiers} />
+      </div>
+      <div className="rounded-[var(--radius-panel)] bg-surface border border-line divide-y divide-line">
+        {previews.map((p) => (
+          <GameRow key={p.id} preview={p} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+async function RecentBest({ today }: { today: string }) {
+  let top;
+  try {
+    top = await getTopGames(shiftDate(today, -7), today, 5);
+  } catch {
+    return null;
+  }
+  if (top.length === 0) return null;
+  return (
+    <Panel
+      title="Najlepsze z ostatnich 7 dni"
+      aside={
+        <Link href="/ranking" className="text-sm text-muted hover:text-text">
+          Ranking
+        </Link>
+      }
+    >
+      <ol className="pb-2">
+        {top.map((g) => (
+          <li key={g.id} className="border-t border-line">
+            <Link
+              href={`/?date=${g.dateISO}#mecz-${g.id}`}
+              className="flex items-center gap-3 px-4 sm:px-5 py-2.5 hover:bg-surface-hover transition-colors"
+            >
+              <ScoreBlock score={g.watchScore} tier={g.tier} size="sm" />
+              <span className="flex items-center gap-1.5 min-w-0">
+                <TeamLogo team={g.away} size={20} />
+                <span className="font-display text-lg font-extrabold">{g.away.abbreviation}</span>
+                <span className="text-faint text-sm">@</span>
+                <TeamLogo team={g.home} size={20} />
+                <span className="font-display text-lg font-extrabold">{g.home.abbreviation}</span>
+              </span>
+              <span className="ml-auto text-sm text-faint whitespace-nowrap">{formatShortPl(g.dateISO)}</span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  );
+}
 
 export default async function Home({
   searchParams,
@@ -28,182 +132,32 @@ export default async function Home({
   searchParams: Promise<{ date?: string }>;
 }) {
   const sp = await searchParams;
-  const date = normalizeDate(sp.date);
-
-  let previews: GamePreview[] = [];
-  let error = false;
-  try {
-    previews = await getPreviewsForDate(date);
-  } catch {
-    error = true;
-  }
+  const today = todayISO();
+  let date = normalizeDate(sp.date);
+  if (date > today) date = today;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* ---- TOPBAR (sticky) ---- */}
-      <SiteHeader date={date} active="mecze" />
+    <>
+      <main className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8">
+        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] lg:static z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 py-3 lg:pt-6 lg:pb-0 bg-bg/90 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none border-b border-line lg:border-0">
+          <DateStrip date={date} today={today} />
+        </div>
 
-      {/* ---- CONTENT ---- */}
-      <main className="w-[92%] max-w-[1600px] mx-auto flex-1 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-8 items-start">
-        {/* lewa kolumna: lista meczów */}
-        <section className="min-w-0">
-          <div className="flex items-baseline justify-between mb-3">
-            <h1 className="font-display text-xl font-extrabold capitalize">
-              {formatPl(date)}
-            </h1>
-            {!error && previews.length > 0 && (
-              <span className="text-sm text-muted font-mono">
-                {previews.length} meczów
-              </span>
-            )}
-          </div>
-
-          {/* pasek statystyk dnia */}
-          {!error && previews.length > 0 && (
-            <DayStats previews={previews} />
-          )}
-
-          {error ? (
-            <EmptyState
-              title="Nie udało się pobrać meczów"
-              desc="Problem z połączeniem ze źródłem danych. Odśwież stronę."
-            />
-          ) : previews.length === 0 ? (
-            <EmptyState
-              title="Brak zakończonych meczów"
-              desc="Wybierz inną datę strzałkami lub klikając w datę powyżej."
-            />
-          ) : (
-            <ul className="flex flex-col gap-px bg-border border border-border rounded-md overflow-hidden">
-              {previews.map((p, i) => (
-                <li
-                  key={p.id}
-                  className="animate-fade"
-                  style={{ animationDelay: `${Math.min(i * 40, 320)}ms` }}
-                >
-                  <GameCard preview={p} rank={i + 1} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* prawa kolumna: sidebar informacyjny */}
-        <aside className="lg:sticky lg:top-[5.5rem] flex flex-col gap-4">
-          {/* czym jest */}
-          <div className="border border-border rounded-md bg-surface overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="font-display font-bold text-sm uppercase tracking-wide">
-                Wskaźnik oglądalności
-              </h2>
-            </div>
-            <p className="px-4 py-3 text-[13px] leading-relaxed text-muted">
-              Liczba <span className="text-text font-semibold">0–100</span> mówi
-              jak emocjonujący był mecz — <span className="text-accent">bez
-              zdradzania kto wygrał</span>. Kliknij mecz, by odkryć wynik, box
-              score i rozkład punktów.
-            </p>
-          </div>
-
-          {/* poziomy */}
-          <div className="border border-border rounded-md bg-surface overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="font-display font-bold text-sm uppercase tracking-wide">
-                Poziomy
-              </h2>
-            </div>
-            <ul>
-              {TIERS.map((t) => (
-                <li
-                  key={t.label}
-                  className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0"
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-sm shrink-0"
-                    style={{ background: t.color }}
-                  />
-                  <span className="text-sm font-medium">{t.label}</span>
-                  <span className="ml-auto font-mono text-xs text-faint tabular-nums">
-                    {t.range}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* co składa się na wynik */}
-          <div className="border border-border rounded-md bg-surface overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="font-display font-bold text-sm uppercase tracking-wide">
-                Co liczy wskaźnik
-              </h2>
-            </div>
-            <ul className="px-4 py-3 space-y-2">
-              {FACTORS.map((f) => {
-                const [head, ...rest] = f.split(" — ");
-                return (
-                  <li key={head} className="flex gap-2.5 text-[13px] leading-snug">
-                    <span className="text-accent mt-0.5 shrink-0">▸</span>
-                    <span>
-                      <span className="font-semibold">{head}</span>
-                      {rest.length > 0 && (
-                        <span className="text-muted"> — {rest.join(" — ")}</span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </aside>
+        <div className="mt-6 lg:mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
+          <section className="min-w-0">
+            <Suspense key={date} fallback={<ListSkeleton />}>
+              <Night date={date} />
+            </Suspense>
+          </section>
+          <aside className="space-y-6 lg:sticky lg:top-24">
+            <Suspense fallback={<div className="skeleton h-72 rounded-[var(--radius-panel)]" />}>
+              <RecentBest today={today} />
+            </Suspense>
+            <TierLegend />
+          </aside>
+        </div>
       </main>
-
-      {/* ---- FOOTER ---- */}
-      <footer className="border-t border-border">
-        <div className="w-[92%] max-w-[1600px] mx-auto py-4 flex items-center justify-between text-xs text-faint">
-          <span>NBA Watch · wskaźnik autorski</span>
-          <span>Dane: ESPN</span>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function DayStats({ previews }: { previews: GamePreview[] }) {
-  const scores = previews.map((p) => p.watchScore);
-  const top = Math.max(...scores);
-  const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-  const mustWatch = previews.filter((p) => p.watchScore >= 85).length;
-  const worth = previews.filter((p) => p.watchScore >= 55).length;
-
-  const stats = [
-    { label: "Najlepszy", value: top },
-    { label: "Średnia", value: avg },
-    { label: "Obowiązkowo", value: mustWatch },
-    { label: "Warto+", value: worth },
-  ];
-
-  return (
-    <div className="grid grid-cols-4 gap-px bg-border border border-border rounded-md overflow-hidden mb-3">
-      {stats.map((s) => (
-        <div key={s.label} className="bg-surface px-3 py-2.5 text-center">
-          <div className="font-display text-2xl font-black tabular-nums text-accent leading-none">
-            {s.value}
-          </div>
-          <div className="text-[11px] text-faint uppercase tracking-wide mt-1">
-            {s.label}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="border border-border rounded-md bg-surface py-16 px-6 text-center">
-      <p className="font-display text-lg font-bold">{title}</p>
-      <p className="mt-1.5 text-sm text-muted max-w-sm mx-auto">{desc}</p>
-    </div>
+      <SiteFooter />
+    </>
   );
 }

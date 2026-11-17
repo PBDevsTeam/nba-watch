@@ -1,66 +1,72 @@
-import type { Metadata } from "next";
-import { Archivo, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Big_Shoulders, Onest } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, THEME_COLOR } from "@/lib/site";
 import "./globals.css";
 
-const sans = Hanken_Grotesk({
-  variable: "--font-sans",
-  subsets: ["latin"],
+const onest = Onest({
+  variable: "--font-onest",
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
 });
 
-const mono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
+const shoulders = Big_Shoulders({
+  variable: "--font-shoulders",
+  subsets: ["latin", "latin-ext"],
+  axes: ["opsz"],
+  display: "swap",
+  // Next nie ma metryk zastępczych dla tego kroju; zapasowy ma być też wąski.
+  adjustFontFallback: false,
+  fallback: ["Arial Narrow", "Roboto Condensed", "sans-serif"],
 });
-
-const display = Archivo({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["600", "700", "800", "900"],
-});
-
-const SITE_URL = "https://nba-watch.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "NBA Watch — czy warto obejrzeć ten mecz?",
-    template: "%s · NBA Watch",
+    default: `${SITE_NAME}: ${SITE_TAGLINE.toLowerCase()}`,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    "Wskaźnik oglądalności meczów NBA 0–100. Sprawdź jak emocjonujący był mecz — dramaturgia, dogrywki, gwiazdorskie występy — zanim poznasz wynik. Bez spoilerów.",
+  description: SITE_DESCRIPTION,
   keywords: [
-    "NBA", "mecze NBA", "czy warto obejrzeć", "wskaźnik oglądalności",
-    "box score", "wyniki NBA", "bez spoilerów", "koszykówka",
+    "NBA", "mecze NBA", "czy warto obejrzeć", "powtórki NBA", "bez spoilerów",
+    "koszykówka", "NBA po polsku", "ocena meczu",
   ],
-  authors: [{ name: "NBA Watch" }],
-  applicationName: "NBA Watch",
+  applicationName: SITE_NAME,
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
   openGraph: {
     type: "website",
     locale: "pl_PL",
     url: SITE_URL,
-    siteName: "NBA Watch",
-    title: "NBA Watch — czy warto obejrzeć ten mecz?",
-    description:
-      "Wskaźnik oglądalności meczów NBA 0–100. Zobacz jak dobry był mecz, zanim poznasz wynik. Bez spoilerów.",
+    siteName: SITE_NAME,
+    title: SITE_TAGLINE,
+    description: SITE_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "NBA Watch — czy warto obejrzeć ten mecz?",
-    description:
-      "Wskaźnik oglądalności meczów NBA 0–100. Bez spoilerów.",
+    title: SITE_TAGLINE,
+    description: SITE_DESCRIPTION,
   },
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export const viewport: Viewport = {
+  themeColor: THEME_COLOR,
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pl">
-      <body
-        className={`${sans.variable} ${mono.variable} ${display.variable} antialiased`}
-      >
-        {children}
+    <html lang="pl" className={`${onest.variable} ${shoulders.variable}`}>
+      <body>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

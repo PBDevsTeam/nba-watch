@@ -30,25 +30,41 @@ export type TeamBox = {
   team: TeamInfo;
   homeAway: "home" | "away";
   score: number;
+  /** Punkty w kolejnych kwartach (i dogrywkach). */
+  linescore: number[];
   players: PlayerLine[];
 };
 
-/** Kontekst rozgrywek — mnożnik ważności meczu (playoff > sezon zasadniczy). */
+export type PlayoffRound = "first" | "semis" | "confFinals" | "finals";
+
+/**
+ * Ranga meczu. Wszystko tutaj jest wiedzą sprzed meczu (rodzaj rozgrywek,
+ * runda, numer meczu w serii), więc wolno to pokazać przed odkryciem wyniku.
+ * Stan serii (kto prowadzi) NIE trafia tutaj, bo zdradzałby wyniki
+ * wcześniejszych meczów komuś, kto ogląda serię po kolei.
+ */
 export type WatchContext = {
   kind: "regular" | "playin" | "playoffs" | "finals";
-  label: string; // "Sezon zasadniczy" | "Play-In" | "Playoff" | "Finały"
+  label: string; // np. "Sezon zasadniczy", "Play-In", "Finał konferencji"
   multiplier: number; // 1.0 ... 1.25
+  round?: PlayoffRound;
+  gameNumber?: number; // numer meczu w serii play-off
 };
 
-/** Lekki obiekt wysyłany PRZED revealem — nie zdradza wyniku. */
+export type GameStatus = "final" | "live" | "scheduled" | "postponed";
+
+/** Lekki obiekt wysyłany PRZED odkryciem — nie zdradza wyniku. */
 export type GamePreview = {
   id: string;
-  dateISO: string; // YYYY-MM-DD
+  dateISO: string; // YYYY-MM-DD (data meczu wg ET)
+  startISO: string | null; // godzina rozpoczęcia (UTC, ISO)
+  status: GameStatus;
   away: TeamInfo;
   home: TeamInfo;
-  watchScore: number; // 0-100
-  tier: WatchTier;
-  context: WatchContext;
+  /** Tylko dla zakończonych meczów. */
+  watchScore: number | null;
+  tier: WatchTier | null;
+  context: WatchContext | null;
 };
 
 /** Punkt wykresu przebiegu: różnica (home - away) w danym momencie meczu. */
@@ -58,7 +74,7 @@ export type FlowPoint = {
   period: number;
 };
 
-/** Pełny obiekt po revealu — zawiera wynik i box score (spoilery). */
+/** Pełny obiekt po odkryciu — zawiera wynik i box score (spoilery). */
 export type GameReveal = {
   id: string;
   away: TeamBox;
@@ -72,11 +88,14 @@ export type GameReveal = {
   flow: FlowPoint[]; // przebieg różnicy punktowej (z play-by-play)
 };
 
+export type WatchTierKey = "must" | "great" | "good" | "average" | "skip";
+
 export type WatchTier = {
-  key: "must" | "great" | "good" | "average" | "skip";
+  key: WatchTierKey;
   label: string;
-  emoji: string;
-  color: string; // hex
+  /** Opis dla legendy: kiedy mecz trafia do tego poziomu. */
+  hint: string;
+  min: number; // dolny próg (włącznie)
 };
 
 /**

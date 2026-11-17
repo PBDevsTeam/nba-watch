@@ -1,106 +1,166 @@
 @import "tailwindcss";
 
+/*
+ * NBA Watch — tokeny.
+ * Tło: granat hali nocą (nie czerń). Interfejs jest neutralny (granat + biel),
+ * a kolor należy do oceny: skala temperatury od zimnego łupku (słaby mecz)
+ * do gorącej czerwieni (obowiązkowo). Pomarańcz piłki tylko w znaku marki.
+ */
 @theme inline {
-  /* tło i powierzchnie */
-  --color-bg: #0a0e15;
-  --color-surface: #111722;
-  --color-surface-2: #161d2a;
-  --color-surface-hover: #1b2433;
-  --color-border: #222b3a;
-  --color-border-strong: #324053;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ball: var(--ball);
+  --color-live: var(--live);
+  --color-t-must: var(--t-must);
+  --color-t-great: var(--t-great);
+  --color-t-good: var(--t-good);
+  --color-t-average: var(--t-average);
+  --color-t-skip: var(--t-skip);
 
-  /* tekst */
-  --color-text: #f4f6fb;
-  --color-muted: #9aa4b5;
-  --color-faint: #5d6678;
+  --font-sans: var(--font-onest);
+  --font-display: var(--font-shoulders);
 
-  /* jeden akcent */
-  --color-accent: #ff6b2c;
-  --color-accent-soft: #ff8a52;
+  --animate-reveal: reveal 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-sheet: sheet 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
 
-  /* kolory poziomów (semantyczne, używane oszczędnie) */
-  --color-t-must: #ff4d4d;
-  --color-t-great: #2ecc71;
-  --color-t-good: #f5c518;
-  --color-t-avg: #ff9f1c;
-  --color-t-skip: #6b7280;
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes sheet {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+}
 
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --font-display: var(--font-display);
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
 }
 
 :root {
   color-scheme: dark;
+
+  /* Wartości jako zwykłe zmienne: działają w klasach Tailwinda (przez @theme
+     inline wyżej) i w stylach inline komponentów (np. kolor poziomu oceny). */
+  --bg: #0f1426;
+  --surface: #161c33;
+  --surface-2: #1c2340;
+  --surface-hover: #212a4b;
+  --line: #262e4d;
+  --line-strong: #36406a;
+
+  --text: #eef1fa;
+  --muted: #a3abc6;
+  --faint: #6d7696;
+
+  --ball: #ff7a2f;
+  --live: #ff4d5e;
+
+  /* skala temperatury ocen (rośnie z oceną) */
+  --t-must: #ff4d5e;
+  --t-great: #ff8a3d;
+  --t-good: #f2c14e;
+  --t-average: #8f98b6;
+  --t-skip: #4e5878;
+
+  --radius-block: 10px;
+  --radius-panel: 14px;
+  /* wysokość dolnego paska zakładek na telefonie (z bezpieczną strefą iOS) */
+  --tabbar-h: calc(60px + env(safe-area-inset-bottom));
 }
 
 html {
-  background: var(--color-bg);
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+  scroll-padding-top: 140px;
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans), system-ui, sans-serif;
-  min-height: 100vh;
+  font-feature-settings: "tnum" 1;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Krój wąski (Big Shoulders) ma oś rozmiaru optycznego: przeglądarka dobiera ją sama. */
+.font-display {
+  font-optical-sizing: auto;
+  letter-spacing: 0.005em;
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: #0a0e15;
+  background: var(--text);
+  color: var(--bg);
 }
 
-/* ---- scrollbar: cienki, geometryczny ---- */
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
-}
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 0;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
+  scrollbar-color: var(--line-strong) transparent;
 }
 
-/* ---- animacje: minimalne ---- */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Ukryty pasek przewijania (pasek dni na telefonie). */
+.no-scrollbar {
+  scrollbar-width: none;
 }
-.animate-fade {
-  animation: fadeIn 0.3s ease both;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-.animate-spin-slow {
-  animation: spin 0.8s linear infinite;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-/* płynne rozwijanie bez JS (grid-rows trick) */
-.reveal-grid {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+/* Szkielet ładowania */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-hover) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 8px;
 }
-.reveal-grid[data-open="true"] {
-  grid-template-rows: 1fr;
+
+/* Bezpieczne strefy w trybie aplikacji (iOS: notch i pasek gestów). */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
 }
-.reveal-grid > div {
-  overflow: hidden;
-  min-height: 0;
+.pb-tabbar {
+  padding-bottom: var(--tabbar-h);
+}
+@media (min-width: 1024px) {
+  .pb-tabbar {
+    padding-bottom: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
