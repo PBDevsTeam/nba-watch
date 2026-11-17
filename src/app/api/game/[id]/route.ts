@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getReveal } from "@/lib/games";
+import { GameNotFinished, getReveal } from "@/lib/games";
 
 export async function GET(
   _req: Request,
@@ -11,13 +11,20 @@ export async function GET(
   }
   try {
     const reveal = await getReveal(id);
+    // Zakończony mecz się nie zmienia: CDN może go trzymać długo.
     return NextResponse.json(reveal, {
-      headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
+      headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" },
     });
-  } catch {
+  } catch (e) {
+    if (e instanceof GameNotFinished) {
+      return NextResponse.json(
+        { error: "Mecz jeszcze się nie zakończył" },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
+    }
     return NextResponse.json(
-      { error: "Nie udało się pobrać szczegółów meczu" },
-      { status: 502 }
+      { error: "ESPN nie odpowiedział. Spróbuj ponownie za chwilę." },
+      { status: 502, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

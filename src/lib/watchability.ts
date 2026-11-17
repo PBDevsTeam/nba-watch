@@ -4,28 +4,35 @@
 // nie suma. Każdy "powód, aby obejrzeć" liczony jest SAMODZIELNIE (0-100) — ile
 // byłby wart, gdyby był jedyną rzeczą w meczu. Następnie:
 //   base   = 0.7 * peak + 0.3 * softOr(reszta)      (hybryda 70/30)
-//   final  = clamp(base * mnożnik_kontekstu)         (playoff > sezon zasadniczy)
+//   final  = clamp(base * mnożnik_rangi)             (finały > play-off > sezon zasadniczy)
 // Dzięki temu pojedynczy historyczny wyczyn (np. 83 pkt) sam czyni mecz must-watch.
 //
 // Wynik 0-100 NIE zdradza kto wygrał — mówi tylko JAK dobry był mecz.
+//
+// Stawka meczu (mecz 7, mecz o odpadnięcie) jest osobnym powodem: patrz kontekst.ts.
 
 import type { GameSummary, PbpPoint } from "./espn";
 import type { WatchContext, WatchFactor, WatchTier } from "./types";
+import { contextFor, stakesFactor } from "./kontekst";
 
-const TIERS: WatchTier[] = [
-  { key: "must", label: "Obowiązkowo", emoji: "🔥", color: "#ff3b30" },
-  { key: "great", label: "Bardzo warto", emoji: "🟢", color: "#34c759" },
-  { key: "good", label: "Warto", emoji: "🟡", color: "#ffcc00" },
-  { key: "average", label: "Przeciętny", emoji: "🟠", color: "#ff9500" },
-  { key: "skip", label: "Można odpuścić", emoji: "⚪", color: "#8a8a8f" },
+/**
+ * Wersja modelu. Wchodzi do klucza cache ocen (scores.ts): po każdej zmianie
+ * krzywych albo wag podbij ją, żeby stare oceny nie mieszały się z nowymi.
+ */
+export const MODEL_VERSION = "3";
+
+// Kolory poziomów żyją w CSS (--color-t-<key>), nie tutaj: oceny są trzymane
+// w cache bez końca, a kolor to sprawa wyglądu.
+export const TIERS: WatchTier[] = [
+  { key: "must", label: "Obowiązkowo", hint: "Mecz, o którym będzie się mówić", min: 85 },
+  { key: "great", label: "Bardzo warto", hint: "Wyraźnie ponad przeciętną", min: 70 },
+  { key: "good", label: "Warto", hint: "Jest na co popatrzeć", min: 55 },
+  { key: "average", label: "Przeciętny", hint: "Dla kibiców tych drużyn", min: 40 },
+  { key: "skip", label: "Można odpuścić", hint: "Wystarczy skrót", min: 0 },
 ];
 
 export function tierForScore(score: number): WatchTier {
-  if (score >= 85) return TIERS[0];
-  if (score >= 70) return TIERS[1];
-  if (score >= 55) return TIERS[2];
-  if (score >= 40) return TIERS[3];
-  return TIERS[4];
+  return TIERS.find((t) => score >= t.min) ?? TIERS[TIERS.length - 1];
 }
 
 // --- narzędzia matematyczne ------------------------------------------------
@@ -56,19 +63,6 @@ function softOr(values: number[]): number {
 }
 
 const clamp = (x: number) => Math.max(0, Math.min(100, x));
-
-// --- kontekst rozgrywek ----------------------------------------------------
-
-function contextFor(seasonTypeName: string): WatchContext {
-  const n = (seasonTypeName || "").toLowerCase();
-  if (n.includes("final"))
-    return { kind: "finals", label: "Finały", multiplier: 1.25 };
-  if (n.includes("playoff") || n.includes("postseason"))
-    return { kind: "playoffs", label: "Playoff", multiplier: 1.15 };
-  if (n.includes("play-in") || n.includes("play in"))
-    return { kind: "playin", label: "Play-In", multiplier: 1.08 };
-  return { kind: "regular", label: "Sezon zasadniczy", multiplier: 1.0 };
-}
 
 // --- pojedyncze "powody, aby obejrzeć" (każdy 0-100) -----------------------
 
@@ -271,6 +265,15 @@ export function computeWatchability(game: GameSummary): Watchability {
     shootoutFactor(combined),
   ];
 
+  const contextInput = {
+    seasonType: game.seasonType,
+    gameNote: game.gameNote,
+    seriesBefore: game.seriesBefore,
+  };
+  const context = contextFor(contextInput);
+  const stakes = stakesFactor(context, contextInput);
+  if (stakes) factors.push(stakes);
+
   // sortuj malejąco, oznacz główny powód
   factors.sort((a, b) => b.standalone - a.standalone);
   if (factors[0]) factors[0].primary = true;
@@ -280,7 +283,6 @@ export function computeWatchability(game: GameSummary): Watchability {
   const rest = factors.slice(1).map((f) => f.standalone);
   const base = 0.7 * peak + 0.3 * softOr(rest);
 
-  const context = contextFor(game.seasonTypeName);
   const score = Math.round(clamp(base * context.multiplier));
 
   return {
@@ -292,39 +294,3 @@ export function computeWatchability(game: GameSummary): Watchability {
   };
 }
 
-// --- LEKKA HEURYSTYKA (bez box score) --------------------------------------
-//
-// Szybkie przybliżenie wskaźnika z samego scoreboardu/harmonogramu — do
-// kalendarza, list drużyn i rankingów, gdzie pobieranie box score każdego
-// meczu byłoby zbyt wolne i obciążałoby ESPN. Ta sama skala i te same krzywe
-// co model pełny, ale tylko z dostępnych pól: różnica, suma pkt, dogrywka,
-// najlepszy strzelec (z leaderów). Wynik bywa nieco niższy niż pełny, bo nie
-// zna triple-double ani dramatu z play-by-play — to świadomy kompromis.
-
-export type QuickInput = {
-  homeScore: number;
-  awayScore: number;
-  periods: number;
-  topPts: number;
-  seasonTypeName: string;
-};
-
-export function quickScore(g: QuickInput): { score: number; tier: WatchTier } {
-  const margin = Math.abs(g.homeScore - g.awayScore);
-  const combined = g.homeScore + g.awayScore;
-
-  const closeness = clamp(
-    curve(margin, [[0, 90], [3, 82], [6, 64], [9, 46], [12, 30], [16, 14], [22, 0]])
-  );
-  const ot = overtimeFactor(g.periods).standalone;
-  const explosion = scoringExplosion({ name: "", pts: g.topPts }).standalone;
-  const shootout = shootoutFactor(combined).standalone;
-
-  const all = [closeness, ot, explosion, shootout].sort((a, b) => b - a);
-  const peak = all[0] ?? 0;
-  const base = 0.7 * peak + 0.3 * softOr(all.slice(1));
-
-  const context = contextFor(g.seasonTypeName);
-  const score = Math.round(clamp(base * context.multiplier));
-  return { score, tier: tierForScore(score) };
-}
