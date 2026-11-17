@@ -1,6 +1,7 @@
 // Stałe strony w jednym miejscu (metadane, sitemap, robots, manifest).
 
-export const SITE_URL = "https://nba-watch.vercel.app";
+// Docelowo Coolify PB Devs. Można nadpisać zmienną NEXT_PUBLIC_SITE_URL (przy budowaniu).
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://nba-watch.pbdevs.com").replace(/\/$/, "");
 export const SITE_NAME = "NBA Watch";
 export const SITE_TAGLINE = "Który mecz z nocy warto obejrzeć?";
 export const SITE_DESCRIPTION =

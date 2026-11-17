@@ -3,7 +3,7 @@
 Ocena 0–100 każdego meczu NBA: czy warto obejrzeć powtórkę. Bez zdradzania wyniku,
 z godzinami czasu polskiego. Strona i aplikacja PWA (instalowana na telefonie i komputerze).
 
-Produkcja: https://nba-watch.vercel.app
+Produkcja: https://nba-watch.pbdevs.com (Coolify PB Devs, wdrożenie: `docs/WDROZENIE.md`).
 
 ## Jak to działa
 
@@ -34,10 +34,10 @@ Produkcja: https://nba-watch.vercel.app
 
 ## Cron
 
-`vercel.json` uruchamia codziennie o 10:00 UTC `/api/cron/rozgrzej`: ocenia mecze
-z ostatnich dni i dolicza brakujące oceny do rankingu. Ustaw w projekcie na Vercelu
-zmienną `CRON_SECRET` (dowolny losowy ciąg), wtedy endpoint przyjmuje tylko wywołania
-z crona.
+`/api/cron/rozgrzej` raz dziennie ocenia mecze z ostatnich dni i dolicza brakujące oceny
+do rankingu. Na Coolify wywołuje go zadanie cykliczne `node rozgrzej.mjs`
+(`docs/WDROZENIE.md`), na Vercelu `vercel.json`. Gdy ustawisz zmienną `CRON_SECRET`,
+endpoint przyjmie tylko wywołania z nagłówkiem `Authorization: Bearer <sekret>`.
 
 ## Praca lokalna
 

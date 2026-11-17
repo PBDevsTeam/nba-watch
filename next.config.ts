@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Obraz Dockera dla Coolify (patrz Dockerfile): tylko potrzebne pliki, bez całego node_modules.
+  output: "standalone",
+  poweredByHeader: false,
   async headers() {
     return [
       {

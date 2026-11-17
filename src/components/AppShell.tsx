@@ -26,14 +26,7 @@ const NAV: NavItem[] = [
 function Brand() {
   return (
     <Link href="/" className="flex items-center gap-2.5 shrink-0 rounded-lg" aria-label="NBA Watch, strona główna">
-      <Image
-        src="/ikony/ikona-192.png"
-        alt=""
-        width={32}
-        height={32}
-        className="rounded-[9px]"
-        priority
-      />
+      <Image src="/ikony/znak-96.png" alt="" width={32} height={32} className="rounded-full" priority />
       <span className="font-display text-[22px] font-extrabold leading-none tracking-tight">
         NBA Watch
       </span>

@@ -4,7 +4,7 @@
 // - loga drużyn z CDN ESPN: z pamięci, odświeżane w tle
 // - /api/*: zawsze sieć (wynik meczu nigdy nie jest trzymany offline)
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `static-${VERSION}`;
 const PAGES = `strony-${VERSION}`;
 const LOGOS = `loga-${VERSION}`;
