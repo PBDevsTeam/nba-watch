@@ -145,9 +145,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-8 text-sm text-faint flex flex-wrap gap-x-6 gap-y-2">
-      <span>Dane meczów: ESPN.</span>
-      <span>Ocena jest autorska i nigdy nie zdradza, kto wygrał.</span>
+    // Telefon: wszystko wyśrodkowane, podpis wykonawcy w osobnej karcie. Od md: informacje po lewej, podpis po prawej.
+    <footer className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-8 text-sm text-faint flex flex-col items-center gap-6 text-center md:flex-row md:items-center md:justify-between md:text-left">
+      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 md:justify-start">
+        <span>Dane meczów: ESPN.</span>
+        <span>Ocena jest autorska i nigdy nie zdradza, kto wygrał.</span>
+      </div>
+
+      {/* Podpis wykonawcy jak na 4fis.pbdevs.com: logo PB Devs i dane spółki. Przygaszony, żeby nie konkurował z marką NBA Watch. */}
+      <a
+        href="https://pbdevs.com"
+        target="_blank"
+        rel="noopener"
+        className="group flex shrink-0 flex-col items-center gap-1.5 text-faint transition-colors hover:text-muted max-md:w-full max-md:gap-2.5 max-md:rounded-2xl max-md:border max-md:border-line max-md:bg-white/[0.03] max-md:px-5 max-md:py-5 md:items-end"
+      >
+        <span className="flex flex-col items-center gap-2.5 md:flex-row md:gap-3">
+          <span className="text-[0.6rem] font-semibold uppercase tracking-[0.14em]">Projekt i wykonanie</span>
+          <Image
+            src="/grafiki/pbdevs-logo-jasne.svg"
+            alt="PB Devs"
+            width={118}
+            height={16}
+            unoptimized
+            className="h-5 w-auto opacity-70 transition-opacity group-hover:opacity-100 md:h-4 md:opacity-60"
+          />
+        </span>
+        <span className="text-[0.72rem]">PB Devs sp. z o.o. · NIP 7773478115</span>
+      </a>
     </footer>
   );
 }
